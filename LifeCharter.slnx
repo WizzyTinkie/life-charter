@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/spikes/">
+    <Project Path="spikes/LifeCharter.AiSpike/LifeCharter.AiSpike.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/LifeCharter.AI/LifeCharter.AI.csproj" />
+    <Project Path="src/LifeCharter.App/LifeCharter.App.csproj" />
+    <Project Path="src/LifeCharter.Core/LifeCharter.Core.csproj" />
+    <Project Path="src/LifeCharter.Data/LifeCharter.Data.csproj" />
+    <Project Path="src/LifeCharter.Platform/LifeCharter.Platform.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LifeCharter.Core.Tests/LifeCharter.Core.Tests.csproj" />
+    <Project Path="tests/LifeCharter.Data.Tests/LifeCharter.Data.Tests.csproj" />
+  </Folder>
+</Solution>

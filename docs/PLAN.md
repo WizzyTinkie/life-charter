@@ -22,9 +22,10 @@ Status: planning. Nothing implemented yet.
 
 | Concern | Library |
 |---|---|
-| UI | `Avalonia` 12.1.x, `Avalonia.Desktop`, Fluent theme |
+| UI | `Avalonia` 12.1.x, `Avalonia.Desktop`, `Avalonia.Wayland` (`UseWaylandWithFallback()`), Fluent theme |
 | MVVM | `CommunityToolkit.Mvvm` (source generators) |
-| Hosting, DI, config, logging | `Microsoft.Extensions.Hosting` |
+| Hosting, DI, config | `Microsoft.Extensions.Hosting` |
+| Logging | **Serilog** with rolling daily files (`Serilog.Sinks.File`, 14 days, 10 MB cap) in `~/.local/state/LifeCharter/logs` (Windows: `%LOCALAPPDATA%\LifeCharter\logs`). Libraries log through `ILogger<T>`, bridged by `Serilog.Extensions.Logging`; Avalonia's warnings go to the same file. |
 | Storage | SQLite via `Microsoft.EntityFrameworkCore.Sqlite`; raw SQL for the sync merge |
 | Spaced repetition | `FSRS.Core` (a .NET port of py-fsrs). Spike 0 confirms it implements FSRS-6; otherwise port ts-fsrs (about 300 lines). |
 | AI abstraction | `Microsoft.Extensions.AI` (`IChatClient`, function invocation middleware) |
@@ -33,7 +34,7 @@ Status: planning. Nothing implemented yet.
 | Linux desktop integration | `Tmds.DBus.Protocol` (notifications, KRunner, Secret Service, GlobalShortcuts portal, KWin reconfigure) |
 | Single instance + CLI | Named pipes (`System.IO.Pipes`, `PipeOptions.CurrentUserOnly`). On Linux they map to Unix domain sockets, so no HTTP server is needed. |
 | Installer + auto-update | `Velopack` (Windows installer; Linux AppImage), plus an Arch `PKGBUILD` for CachyOS |
-| Tests | xUnit + Avalonia.Headless; year-long simulation tests for game fairness (section 5) |
+| Tests | xUnit v3 (Microsoft.Testing.Platform) + **NSubstitute** + Avalonia.Headless; year-long simulation tests for game fairness (section 5) |
 
 Native AOT is out of scope for v1 because EF Core relies on reflection. Use ReadyToRun and partial trimming instead.
 
@@ -71,18 +72,32 @@ flowchart LR
 
 ### Solution layout
 
+Projects separate dependencies (UI, storage, OS, AI). **Inside each project the code is organised feature first**, then by layer: `Business/`, `Models/`, `Interfaces/`, `Views/`, `ViewModels/`, `Controls/`. The full rules are in [CODING_GUIDELINES.md](CODING_GUIDELINES.md).
+
 ```
-LifeCharter.sln
+LifeCharter.slnx
 src/
-  LifeCharter.Core/       domain model, game rules, retention models, siege engine (pure, no UI)
-  LifeCharter.Data/       EF Core DbContext, migrations, Syncthing snapshot export/merge
-  LifeCharter.AI/         provider factory, router, tools, prompts, quick-entry parser, Lemonade manager
-  LifeCharter.Platform/   D-Bus, KWin rule installer, Win32 (hotkey, desktop pinning), DPAPI, autostart, IPC
-  LifeCharter.App/        Avalonia app: tray, main window, SkillTreeCanvas, widget, peek overlay
-tests/
-  LifeCharter.Core.Tests/       incl. siege fairness simulations
-  LifeCharter.Data.Tests/       incl. merge tests with two simulated devices
-  LifeCharter.AI.Evals/         local-model eval harness
+  LifeCharter.Core/        pure domain, no UI
+    Sync/                    Business/HybridLogicalClock, Models/HlcStamp
+    Retention/  Siege/  Progression/  Goals/        (Phase 1–2)
+  LifeCharter.Data/        SQLite
+    Sync/                    Business/SnapshotSync, Models/SyncedTable, SyncKind, MergeReport
+    Storage/                 (Phase 1: EF Core DbContext, migrations)
+  LifeCharter.Platform/    OS integration
+    AppInstance/             Business/SingleInstance (named pipe)
+    DesktopWidget/           Business/KWinRuleInstaller, DesktopPinning (Windows)
+    Notifications/  Secrets/  Shortcuts/  Autostart/  (Phase 3+)
+  LifeCharter.AI/          providers, router, tools, quick-entry parser, Lemonade manager
+  LifeCharter.App/         Avalonia
+    Shell/                   Business/AppShell, AppCommands, TrayIconFactory; Models/AppCommand
+    Logging/                 Business/AppLogging (Serilog), AvaloniaSerilogSink
+    SkillTree/               Views/TreeWindow, Controls/SkillTreeCanvas, Business/TreeLayoutGenerator, Models/…
+    Widget/                  Views/WidgetWindow, PeekWindow, WidgetContent
+spikes/
+  LifeCharter.AiSpike/     provider tool-call spike (Phase 0)
+tests/                     mirror the src folders
+  LifeCharter.Core.Tests/  Sync/Business/HybridLogicalClockTests, Retention/Business/FsrsSpikeTests
+  LifeCharter.Data.Tests/  Sync/Business/SnapshotSyncTests
 docs/
 ```
 
@@ -141,7 +156,7 @@ Each node has a **retention model** that matches what kind of thing it is. The m
 
 | Model | Used for (default) | Evidence | What fades and triggers attacks | **Engraved when** |
 |---|---|---|---|---|
-| **Memory** | Knowledge: languages, programming, theory (Might) | Forgetting curve and spacing effect (Ebbinghaus; Cepeda 2006 meta-analysis); testing effect (Roediger & Karpicke 2006); FSRS memory model | Predicted recall probability *R* falls over time. The node is attacked when *R* drops below the desired retention (default 0.90) — that is, when a review is due. | **Stability ≥ 365 days**, meaning ≥ 90% predicted recall after a year without practice. Typically 6–8 successful spaced reviews over about 8–12 months. **Fortified** at stability ≥ 90 days. |
+| **Memory** | Knowledge: languages, programming, theory (Might) | Forgetting curve and spacing effect (Ebbinghaus; Cepeda 2006 meta-analysis); testing effect (Roediger & Karpicke 2006); FSRS memory model | Predicted recall probability *R* falls over time. The node is attacked when *R* drops below the desired retention (default 0.90) — that is, when a review is due. | **Stability ≥ 365 days**, meaning ≥ 90% predicted recall after a year without practice, **and ≥ 5 successful reviews spanning ≥ 6 months**. Phase 0 measured FSRS-6: all-Good reviews reach it in 6 reviews over 289 days; all-Easy would reach it in only 3 reviews, hence the extra guard. **Fortified** at stability ≥ 90 days. |
 | **Habit** | Lifestyle behaviours (Health) | Automaticity grows along an asymptotic curve with repetitions in a stable context: median 66 days, range 18–254, and a single missed day did not derail it (Lally 2010). Implementation intentions (Gollwitzer & Sheeran 2006, d ≈ 0.65). | Missed scheduled repetitions. Modelled automaticity `A(n) = 1 − e^(−k·n)`, where each miss costs a little. | **A ≥ 95% of plateau** (default 66 performed repetitions; simple habits ×0.5, complex ×2) **and** an SRBAI self-check (4 questions, Gardner 2012) averaging ≥ 4/5. **Fortified** at A ≥ 70%. |
 | **Capacity** | Fitness levels: endurance, strength (Stamina) | Detraining and minimal maintenance dose (Spiering 2021): endurance held up to 15 weeks at 2 sessions/week, or with 33–66% less volume, if intensity stays the same; strength held up to 32 weeks at 1 session/week and 1 set per exercise at the same relative load. | Missing the weekly maintenance dose, after a 14-day grace period (when detraining starts). | **Never fully immune**, because physiology isn't. **Seasoned** (the Capacity version of Fortified) after 6 months at ≥ 80% weekly adherence: only the maintenance dose is needed to defend, and damage is halved. |
 | **Motor skill** | Technique: swimming crawl, touch typing, juggling | Physical, closed-loop skills decay much more slowly than cognitive ones (Arthur 1998 meta-analysis on skill decay). | Memory model with a high starting stability. | A proficiency test passed, plus practice in ≥ 4 spaced sessions over ≥ 4 weeks. |
@@ -420,6 +435,22 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 | 5 | **AI** | Provider settings + keychain, coach chat, natural-language quick entry, goal planning with ghost nodes and retention models, weekly replanning, eval harness, model auto-selection | ≥ 90% accuracy on the quick-entry eval |
 | 6 | **Packaging + integrations** | Velopack (Windows) + PKGBUILD/AppImage (Linux), Lemonade bootstrap, first-run model download, KRunner, autostart | Clean install on a fresh Windows VM and on CachyOS |
 | 7 | Later | Per-item flashcards + Anki import, stats dashboard, achievements, imports (Strava, Google Fit, Health Connect), Windows Widgets Board | — |
+
+---
+
+### Phase 0 results (2026-11-17, branch `phase0/spikes`)
+
+| Spike | Result |
+|---|---|
+| (a) Tray + desktop widget (KDE) | ✅ Tray icon, frameless transparent widget, Peek overlay, single instance over a named pipe (a second launch forwards its command and exits in 0.1 s). A KWin rule matched by the widget's own Wayland app id (`lifecharter-widget`) gives keep-below, skip taskbar/switcher, all desktops, no border. Plasma 6.8 stores the rule list in `General/Order`. Matching by title did **not** work, because the title arrives after the window maps. ⚠️ The initial position from the rule is not applied yet. |
+| (a) Windows | ⬜ Code written (`WS_EX_TOOLWINDOW`, `HWND_BOTTOM`, `WM_WINDOWPOSCHANGING` hook); not run. Surviving `Win+D` still open. |
+| (b) Tree canvas, 1,000 nodes | ✅ Renders on demand: 1 frame at open, then **0 frames while idle**. Pan, zoom, culling, level of detail, click-to-allocate with pulse animation. ⬜ Panning FPS and GPU load need a manual check (overlay shows frames/s). |
+| Energy, tray + widget idle | ✅ 0–0.5% CPU, 0% GPU (15 MB VRAM), PSS 116 MB / RSS 211 MB (Debug build; RSS counts shared NVIDIA libraries) |
+| (c) Lemonade tool call | ⬜ Spike console ready (`spikes/LifeCharter.AiSpike`); needs `lemond` running and the 3.6 GB model downloaded |
+| (d) Haiku / Luna tool calls | ⬜ Same console; needs `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
+| (e) FSRS | ✅ `FSRS.Core` 1.0.7 implements FSRS-6 (21 weights). All-Good reviews reach Engraved in 6 reviews over 289 days, so a minimum-review guard was added (section 4). |
+| (f) Snapshot sync | ✅ 6 tests: offline edits on both devices converge, last writer wins, tombstones propagate, idempotent merge, atomic export |
+| Bug found and fixed | Quitting deadlocked: the pipe listener captured the UI synchronization context while the UI thread blocked on it. Led to the async rules in CODING_GUIDELINES.md. |
 
 ---
 

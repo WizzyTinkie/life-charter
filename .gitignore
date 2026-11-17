@@ -1,0 +1,27 @@
+## .NET build output
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+
+## Test results
+TestResults/
+*.trx
+coverage*.xml
+
+## Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+## VS Code / Visual Studio
+.vscode/
+.vs/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Local app data produced by spikes
+*.db-wal
+*.db-shm

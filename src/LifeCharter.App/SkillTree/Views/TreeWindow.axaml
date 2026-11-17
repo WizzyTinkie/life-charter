@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:LifeCharter.App.SkillTree.Controls"
+        x:Class="LifeCharter.App.SkillTree.Views.TreeWindow"
+        Title="LifeCharter"
+        Width="1280" Height="800"
+        Background="#0E0F13">
+  <Grid>
+    <controls:SkillTreeCanvas x:Name="Tree" />
+    <TextBlock x:Name="Stats"
+               Margin="12"
+               FontSize="12"
+               Foreground="#80FFFFFF"
+               IsHitTestVisible="False" />
+  </Grid>
+</Window>

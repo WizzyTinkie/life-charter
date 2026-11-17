@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="LifeCharter.App.Widget.Views.WidgetContent"
+             Width="300">
+  <Border CornerRadius="16"
+          Background="#E6181A20"
+          BorderBrush="#33FFFFFF"
+          BorderThickness="1"
+          Padding="14">
+    <StackPanel Spacing="10">
+      <Grid x:Name="Header" ColumnDefinitions="*,Auto" Background="Transparent" Cursor="SizeAll">
+        <TextBlock Text="LifeCharter" FontSize="15" FontWeight="SemiBold" Foreground="#F2F2F2" />
+        <TextBlock Grid.Column="1" Text="Lv 7" FontWeight="Bold" Foreground="#E8C36A" />
+      </Grid>
+
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="70,*">
+          <TextBlock Text="Health" FontSize="12" Foreground="#B0B0B0" />
+          <ProgressBar Grid.Column="1" Value="62" Height="6" MinWidth="0" Foreground="#4CAF50" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="70,*">
+          <TextBlock Text="Stamina" FontSize="12" Foreground="#B0B0B0" />
+          <ProgressBar Grid.Column="1" Value="38" Height="6" MinWidth="0" Foreground="#E5484D" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="70,*">
+          <TextBlock Text="Might" FontSize="12" Foreground="#B0B0B0" />
+          <ProgressBar Grid.Column="1" Value="81" Height="6" MinWidth="0" Foreground="#3E8EF7" VerticalAlignment="Center" />
+        </Grid>
+      </StackPanel>
+
+      <TextBlock Text="Today's defenses · 2 attacks left" FontSize="12" Foreground="#B0B0B0" />
+      <StackPanel Spacing="0">
+        <CheckBox Content="Cardio I · 20 min run" />
+        <CheckBox Content="German vocab · recall" />
+        <CheckBox Content="Hydration · 2 l" IsChecked="True" />
+      </StackPanel>
+
+      <TextBox x:Name="QuickEntry" PlaceholderText="Quick entry: run 5, water 2l…" />
+    </StackPanel>
+  </Border>
+</UserControl>
