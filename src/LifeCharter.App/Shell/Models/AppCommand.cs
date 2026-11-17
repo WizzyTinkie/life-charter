@@ -6,5 +6,6 @@ public enum AppCommand
     Start,
     ShowTree,
     Peek,
+    Help,
     Quit,
 }

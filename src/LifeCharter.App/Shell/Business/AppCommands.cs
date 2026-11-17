@@ -12,6 +12,7 @@ public static class AppCommands
     {
         "tree" or "--tree" => AppCommand.ShowTree,
         "peek" or "--peek" => AppCommand.Peek,
+        "help" or "--help" => AppCommand.Help,
         "quit" or "--quit" => AppCommand.Quit,
         _ => AppCommand.Start,
     };
@@ -20,6 +21,7 @@ public static class AppCommands
     {
         AppCommand.ShowTree => "tree",
         AppCommand.Peek => "peek",
+        AppCommand.Help => "help",
         AppCommand.Quit => "quit",
         _ => "start",
     };

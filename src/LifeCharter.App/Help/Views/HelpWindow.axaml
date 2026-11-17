@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LifeCharter.App.Help.ViewModels"
+        xmlns:models="using:LifeCharter.App.Help.Models"
+        x:Class="LifeCharter.App.Help.Views.HelpWindow"
+        x:DataType="vm:HelpViewModel"
+        Title="LifeCharter Help"
+        Width="760" Height="820"
+        Background="#0E0F13">
+  <ScrollViewer>
+    <StackPanel Margin="32,24" Spacing="24" MaxWidth="680">
+      <StackPanel Spacing="4">
+        <TextBlock Text="LifeCharter Help" FontSize="26" FontWeight="Bold" Foreground="#E8C36A" />
+        <TextBlock Text="How the tree, skill points, XP and goals work." Foreground="#9AA0AE" />
+      </StackPanel>
+
+      <ItemsControl ItemsSource="{Binding Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="models:HelpSection">
+            <StackPanel Spacing="8" Margin="0,0,0,24">
+              <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Foreground="#F2F2F2" />
+              <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" Foreground="#C8CCD6" />
+              <ItemsControl ItemsSource="{Binding Points}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <Grid ColumnDefinitions="18,*" Margin="0,2">
+                      <TextBlock Text="•" Foreground="#E8C36A" />
+                      <TextBlock Grid.Column="1" Text="{Binding}" TextWrapping="Wrap" Foreground="#C8CCD6" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="Level table" FontSize="18" FontWeight="SemiBold" Foreground="#F2F2F2" />
+        <Border Background="#14161C" CornerRadius="8" Padding="12,8">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,*,*,*" Margin="0,4">
+              <TextBlock Text="Level" FontWeight="SemiBold" Foreground="#9AA0AE" />
+              <TextBlock Grid.Column="1" Text="XP for this step" FontWeight="SemiBold" Foreground="#9AA0AE" />
+              <TextBlock Grid.Column="2" Text="Total XP" FontWeight="SemiBold" Foreground="#9AA0AE" />
+              <TextBlock Grid.Column="3" Text="Points earned in total" FontWeight="SemiBold" Foreground="#9AA0AE" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Levels}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:LevelRow">
+                  <Grid ColumnDefinitions="*,*,*,*" Margin="0,4">
+                    <TextBlock Text="{Binding Level}" Foreground="#E8C36A" />
+                    <TextBlock Grid.Column="1" Text="{Binding StepXp}" Foreground="#C8CCD6" />
+                    <TextBlock Grid.Column="2" Text="{Binding TotalXp}" Foreground="#C8CCD6" />
+                    <TextBlock Grid.Column="3" Text="{Binding SkillPointsEarned}" Foreground="#C8CCD6" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

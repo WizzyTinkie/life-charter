@@ -1,4 +1,4 @@
-namespace LifeCharter.App.SkillTree.Models;
+namespace LifeCharter.Core.SkillTree.Models;
 
 public enum NodeKind
 {

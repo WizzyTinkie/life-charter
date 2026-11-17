@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LifeCharter.App.SkillTree.ViewModels"
+             x:Class="LifeCharter.App.SkillTree.Views.NodeInspectorView"
+             x:DataType="vm:NodeInspectorViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" IsVisible="{Binding !CanEditNode}" />
+      <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="#9AA0AE" />
+      <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Foreground="#C8CCD6" IsVisible="{Binding !CanEditNode}" />
+
+      <StackPanel Spacing="8" IsVisible="{Binding CanEditNode}">
+        <TextBox Text="{Binding Title}" PlaceholderText="Title" />
+        <TextBox Text="{Binding Description}" PlaceholderText="Description" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" />
+        <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto">
+          <TextBlock Text="Attribute" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
+                    ItemsSource="{x:Static vm:NodeInspectorViewModel.Attributes}" SelectedItem="{Binding Attribute}" />
+          <TextBlock Grid.Row="1" Text="Kind" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
+                    ItemsSource="{x:Static vm:NodeInspectorViewModel.Kinds}" SelectedItem="{Binding Kind}" />
+          <TextBlock Grid.Row="2" Text="Retention" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
+                    ItemsSource="{x:Static vm:NodeInspectorViewModel.RetentionModels}" SelectedItem="{Binding RetentionModel}" />
+        </Grid>
+        <Button Content="Save node" Command="{Binding SaveNodeCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </StackPanel>
+
+      <StackPanel Spacing="6" IsVisible="{Binding ShowAllocate}">
+        <Button Classes="accent" Content="Allocate · 1 skill point" Command="{Binding AllocateCommand}" IsEnabled="{Binding CanAllocate}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <TextBlock Text="{Binding AllocationHint}" FontSize="12" Foreground="#E5A84D" TextWrapping="Wrap" />
+      </StackPanel>
+      <Button Content="Refund point" Command="{Binding RefundCommand}" IsVisible="{Binding CanRefund}"
+              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+
+      <TextBlock Text="Goals" FontWeight="SemiBold" IsVisible="{Binding HasGoals}" />
+      <ItemsControl ItemsSource="{Binding Goals}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GoalItemViewModel">
+            <Border Background="#1A1D24" CornerRadius="8" Padding="10" Margin="0,0,0,8">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" IsVisible="{Binding !IsEditing}" />
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="6" MinWidth="0" Foreground="#E8C36A" />
+                <TextBlock Text="{Binding ProgressDescription}" FontSize="12" Foreground="#9AA0AE" TextWrapping="Wrap" />
+
+                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding !IsEditing}">
+                  <NumericUpDown Value="{Binding LogAmount}" Minimum="0" Increment="1" FormatString="0.##" />
+                  <TextBlock Grid.Column="1" Text="{Binding UnitLabel}" VerticalAlignment="Center" Margin="8,0" Foreground="#9AA0AE" />
+                  <Button Grid.Column="2" Content="Log" Command="{Binding LogCommand}" />
+                </Grid>
+                <TextBox Text="{Binding LogNote}" PlaceholderText="Note (optional)" IsVisible="{Binding !IsEditing}" />
+
+                <StackPanel Spacing="6" IsVisible="{Binding IsEditing}">
+                  <TextBox Text="{Binding Title}" PlaceholderText="Goal title" />
+                  <Grid ColumnDefinitions="*,*">
+                    <ComboBox ItemsSource="{x:Static vm:GoalItemViewModel.Metrics}" SelectedItem="{Binding Metric}" HorizontalAlignment="Stretch" Margin="0,0,4,0" />
+                    <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:GoalItemViewModel.Windows}" SelectedItem="{Binding Window}" HorizontalAlignment="Stretch" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,*">
+                    <NumericUpDown Value="{Binding Target}" Minimum="0" FormatString="0.##" Margin="0,0,4,0" ToolTip.Tip="Target per period" />
+                    <TextBox Grid.Column="1" Text="{Binding Unit}" PlaceholderText="Unit (km, min, l…)" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <NumericUpDown Value="{Binding Periods}" Minimum="1" FormatString="0" ToolTip.Tip="Days or weeks that must meet the target" />
+                    <CheckBox Grid.Column="1" Content="In a row" IsChecked="{Binding Consecutive}" Margin="8,0,0,0" />
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Save goal" Command="{Binding SaveCommand}" />
+                    <Button Content="Delete" Command="{Binding DeleteCommand}" Foreground="#E5484D" />
+                  </StackPanel>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <StackPanel Spacing="6" IsVisible="{Binding CanEditNode}">
+        <Button Content="Add goal" Command="{Binding AddGoalCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button Content="Delete node" Command="{Binding DeleteNodeCommand}" Foreground="#E5484D"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using LifeCharter.App.Widget.ViewModels;
 
 namespace LifeCharter.App.Widget.Views;
 
@@ -10,12 +11,15 @@ namespace LifeCharter.App.Widget.Views;
 /// </summary>
 public partial class PeekWindow : Window
 {
+    // Used by the IDE previewer.
     public PeekWindow()
     {
         InitializeComponent();
         Body.DragHandle.PointerPressed += (_, e) => BeginMoveDrag(e);
         Deactivated += (_, _) => Close();
     }
+
+    public PeekWindow(WidgetViewModel viewModel) : this() => DataContext = viewModel;
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

@@ -1,16 +1,40 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:LifeCharter.App.SkillTree.Controls"
+        xmlns:views="using:LifeCharter.App.SkillTree.Views"
+        xmlns:vm="using:LifeCharter.App.SkillTree.ViewModels"
         x:Class="LifeCharter.App.SkillTree.Views.TreeWindow"
+        x:DataType="vm:TreeWindowViewModel"
         Title="LifeCharter"
         Width="1280" Height="800"
         Background="#0E0F13">
-  <Grid>
-    <controls:SkillTreeCanvas x:Name="Tree" />
-    <TextBlock x:Name="Stats"
-               Margin="12"
-               FontSize="12"
-               Foreground="#80FFFFFF"
-               IsHitTestVisible="False" />
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#14161C" BorderBrush="#22252E" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <TextBlock Text="{Binding LevelText}" FontSize="22" FontWeight="Bold" Foreground="#E8C36A" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Margin="16,0" Spacing="2" VerticalAlignment="Center">
+          <ProgressBar Minimum="0" Maximum="1" Value="{Binding XpFraction}" Width="220" Height="8" MinWidth="0" Foreground="#E8C36A" />
+          <TextBlock Text="{Binding XpText}" FontSize="11" Foreground="#9AA0AE" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+          <TextBlock Text="{Binding SkillPointsText}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding AttributesText}" FontSize="11" Foreground="#9AA0AE" />
+        </StackPanel>
+        <ToggleButton Grid.Column="4" Content="Edit tree" IsChecked="{Binding IsEditing}" VerticalAlignment="Center" />
+        <Button Grid.Column="5" Content="Help" Command="{Binding OpenHelpCommand}" VerticalAlignment="Center" Margin="8,0,0,0" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+      <controls:SkillTreeCanvas x:Name="Tree" IsEditing="{Binding IsEditing}" />
+      <TextBlock x:Name="Stats" Margin="12" FontSize="11" Foreground="#50FFFFFF" IsHitTestVisible="False" />
+      <TextBlock Text="Edit mode · drag to move · Shift-drag between nodes to connect or disconnect · double-click empty space to add a node"
+                 IsVisible="{Binding IsEditing}" VerticalAlignment="Bottom" Margin="12" FontSize="12"
+                 Foreground="#90FFFFFF" IsHitTestVisible="False" TextWrapping="Wrap" />
+      <Border Grid.Column="1" Width="340" Background="#14161C" BorderBrush="#22252E" BorderThickness="1,0,0,0"
+              IsVisible="{Binding Inspector, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <views:NodeInspectorView DataContext="{Binding Inspector}" />
+      </Border>
+    </Grid>
   </Grid>
 </Window>

@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using Avalonia.Controls;
 using Avalonia.Input;
+using LifeCharter.App.Widget.ViewModels;
 using LifeCharter.Platform.DesktopWidget.Business;
 
 namespace LifeCharter.App.Widget.Views;
@@ -14,6 +15,7 @@ public partial class WidgetWindow : Window
 {
     public const string AppId = "lifecharter-widget";
 
+    // Used by the IDE previewer.
     public WidgetWindow()
     {
         InitializeComponent();
@@ -26,6 +28,8 @@ public partial class WidgetWindow : Window
                 PinToDesktop();
         };
     }
+
+    public WidgetWindow(WidgetViewModel viewModel) : this() => DataContext = viewModel;
 
     private void OnDragHandlePressed(object? sender, PointerPressedEventArgs e)
     {

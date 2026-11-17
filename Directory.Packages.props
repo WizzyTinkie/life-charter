@@ -11,6 +11,7 @@
     <!-- Storage -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" />
 
     <!-- Hosting and logging -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />

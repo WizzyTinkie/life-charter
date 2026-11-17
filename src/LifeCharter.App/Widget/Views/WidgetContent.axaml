@@ -1,6 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LifeCharter.App.Widget.ViewModels"
              x:Class="LifeCharter.App.Widget.Views.WidgetContent"
+             x:DataType="vm:WidgetViewModel"
              Width="300">
   <Border CornerRadius="16"
           Background="#E6181A20"
@@ -8,34 +10,38 @@
           BorderThickness="1"
           Padding="14">
     <StackPanel Spacing="10">
-      <Grid x:Name="Header" ColumnDefinitions="*,Auto" Background="Transparent" Cursor="SizeAll">
-        <TextBlock Text="LifeCharter" FontSize="15" FontWeight="SemiBold" Foreground="#F2F2F2" />
-        <TextBlock Grid.Column="1" Text="Lv 7" FontWeight="Bold" Foreground="#E8C36A" />
+      <Grid x:Name="Header" ColumnDefinitions="*,Auto,Auto" Background="Transparent" Cursor="SizeAll">
+        <TextBlock Text="LifeCharter" FontSize="15" FontWeight="SemiBold" Foreground="#F2F2F2" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding LevelText}" FontWeight="Bold" Foreground="#E8C36A" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <Button Grid.Column="2" Content="Tree" Command="{Binding OpenTreeCommand}" Padding="8,2" FontSize="12" />
       </Grid>
 
       <StackPanel Spacing="6">
         <Grid ColumnDefinitions="70,*">
           <TextBlock Text="Health" FontSize="12" Foreground="#B0B0B0" />
-          <ProgressBar Grid.Column="1" Value="62" Height="6" MinWidth="0" Foreground="#4CAF50" VerticalAlignment="Center" />
+          <ProgressBar Grid.Column="1" Value="{Binding HealthShare}" Height="6" MinWidth="0" Foreground="#4CAF50" VerticalAlignment="Center" />
         </Grid>
         <Grid ColumnDefinitions="70,*">
           <TextBlock Text="Stamina" FontSize="12" Foreground="#B0B0B0" />
-          <ProgressBar Grid.Column="1" Value="38" Height="6" MinWidth="0" Foreground="#E5484D" VerticalAlignment="Center" />
+          <ProgressBar Grid.Column="1" Value="{Binding StaminaShare}" Height="6" MinWidth="0" Foreground="#E5484D" VerticalAlignment="Center" />
         </Grid>
         <Grid ColumnDefinitions="70,*">
           <TextBlock Text="Might" FontSize="12" Foreground="#B0B0B0" />
-          <ProgressBar Grid.Column="1" Value="81" Height="6" MinWidth="0" Foreground="#3E8EF7" VerticalAlignment="Center" />
+          <ProgressBar Grid.Column="1" Value="{Binding MightShare}" Height="6" MinWidth="0" Foreground="#3E8EF7" VerticalAlignment="Center" />
         </Grid>
       </StackPanel>
 
-      <TextBlock Text="Today's defenses · 2 attacks left" FontSize="12" Foreground="#B0B0B0" />
-      <StackPanel Spacing="0">
-        <CheckBox Content="Cardio I · 20 min run" />
-        <CheckBox Content="German vocab · recall" />
-        <CheckBox Content="Hydration · 2 l" IsChecked="True" />
-      </StackPanel>
+      <TextBlock Text="{Binding TodayHeader}" FontSize="12" Foreground="#B0B0B0" />
+      <ItemsControl ItemsSource="{Binding Today}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TodayItemViewModel">
+            <CheckBox Content="{Binding Text}" IsChecked="{Binding IsDone}" IsEnabled="{Binding !IsDone}"
+                      Command="{Binding CompleteCommand}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
-      <TextBox x:Name="QuickEntry" PlaceholderText="Quick entry: run 5, water 2l…" />
+      <TextBox x:Name="QuickEntry" PlaceholderText="Quick entry arrives in Phase 3" IsEnabled="False" />
     </StackPanel>
   </Border>
 </UserControl>

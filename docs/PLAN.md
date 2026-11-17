@@ -111,9 +111,9 @@ Every synced table has `Id` (UUIDv7), `UpdatedAt` (hybrid logical clock, HLC), `
 
 | Entity | Key fields |
 |---|---|
-| `Node` | Attribute (Health/Stamina/Might), Kind (Root, Small, Notable, Keystone, Socket), Title, Description, Icon, Position, **RetentionModel** (Memory, Habit, Capacity, MotorSkill, Milestone), Complexity (simple/standard/complex), XpReward |
+| `Node` | Attribute (Health/Stamina/Might), Kind (Root, Small, Notable, Keystone), Title, Description, Icon, Position, **RetentionModel** (Memory, Habit, Capacity, MotorSkill, Milestone), Complexity (simple/standard/complex), XpReward |
 | `Edge` | From, To, Kind (`Path`: any allocated neighbour unlocks it; `Requires`: every prerequisite must be mastered) |
-| `Goal` | NodeId, Metric (Count, Sum, Streak, Duration, Milestone), Target, Unit, Window (Total, Daily, Weekly), Start, Deadline?, Source (Manual, AI) |
+| `Goal` | NodeId, Title, Metric (Count, Sum, Milestone), Target, Unit, Window (Total, Daily, Weekly), Periods (how many days/weeks must meet the target), Consecutive (a streak), StartDate, Deadline?, Source (Manual, Template, AI). Duration is a Sum in minutes; a streak is Consecutive. |
 | `Quest` | GoalId?, Title, Schedule (once, daily, weekdays, N× per week, RRULE), Amount, Unit, **Cue** ("When/where…, I will…"), Aliases |
 | `LogEntry` (append-only) | Timestamp, NodeId?, QuestId?, Amount, Unit, Note, Source (Tray, Widget, KRunner, CLI, Chat) |
 | `Review` (append-only) | NodeId, Timestamp, Rating (Again/Hard/Good/Easy) — a recall session on a Memory node |
@@ -145,7 +145,7 @@ Locked → Available → Training → Mastered → Fortified → Engraved
 3. **Spending a point allocates a node** (PoE path rule or `Requires` edges), which commits you to its goal.
 4. **Work-in-progress limit:** at most 3 nodes in Training per attribute (configurable).
 5. **Shame-free respec:** abandoning a goal refunds its point.
-6. **Sockets** hold time-boxed challenges (for example 30 days of cold showers).
+6. **Time-boxed challenges** (for example 30 days of cold showers) are ordinary nodes whose goal has a deadline; no special node kind.
 7. **Starter template** (seed): Health — Sleep, Hydration, Nutrition, Mind, Screen time, Social. Stamina — Cardio, Strength, Mobility, Steps, Sport. Might — Languages, Programming, Reading, Courses, Creative. A manual wizard or a short AI interview turns it into your first 30–45 nodes.
 
 ---

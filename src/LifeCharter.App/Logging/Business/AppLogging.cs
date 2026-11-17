@@ -1,3 +1,4 @@
+using LifeCharter.Platform.Storage.Business;
 using Microsoft.Extensions.Logging;
 using Serilog.Events;
 using Serilog.Extensions.Logging;
@@ -16,7 +17,7 @@ public static class AppLogging
 
     private static SerilogLoggerFactory? factory;
 
-    public static string LogDirectory { get; } = ResolveLogDirectory();
+    public static string LogDirectory { get; } = Path.Combine(AppPaths.StateDirectory, "logs");
 
     public static void Initialize()
     {
@@ -39,16 +40,4 @@ public static class AppLogging
 
     public static ILogger<T> CreateLogger<T>() =>
         (factory ?? throw new InvalidOperationException("Call AppLogging.Initialize first.")).CreateLogger<T>();
-
-    private static string ResolveLogDirectory()
-    {
-        if (OperatingSystem.IsWindows())
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LifeCharter", "logs");
-
-        var stateHome = Environment.GetEnvironmentVariable("XDG_STATE_HOME");
-        if (string.IsNullOrEmpty(stateHome))
-            stateHome = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
-
-        return Path.Combine(stateHome, "LifeCharter", "logs");
-    }
 }
