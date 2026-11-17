@@ -6,10 +6,12 @@ using LifeCharter.AiSpike.QuickEntry.Models;
 using Microsoft.Extensions.AI;
 
 // Phase 0 spikes (c) and (d): one tool-calling quick-entry prompt against any provider.
-//   dotnet run --project spikes/LifeCharter.AiSpike -- anthropic   [model]   (ANTHROPIC_API_KEY)
-//   dotnet run --project spikes/LifeCharter.AiSpike -- openai      [model]   (OPENAI_API_KEY)
+//   dotnet run --project spikes/LifeCharter.AiSpike -- anthropic   [model]   (ANTHROPIC_API_KEY or prompt)
+//   dotnet run --project spikes/LifeCharter.AiSpike -- openai      [model]   (OPENAI_API_KEY or prompt)
 //   dotnet run --project spikes/LifeCharter.AiSpike -- lemonade    [model]   (lemond on :13305)
 // Add --think to keep the local model's thinking phase (off by default for Lemonade).
+// Without the environment variable, the spike asks for the key with hidden input; it is
+// kept in memory for this run only and never printed or stored.
 
 var think = args.Contains("--think");
 args = [.. args.Where(arg => arg != "--think")];
@@ -21,6 +23,20 @@ var profile = providerName switch
     "lemonade" => new ProviderProfile(AiProvider.Lemonade, args.Length > 1 ? args[1] : "Qwen3.5-4B-GGUF"),
     _ => throw new ArgumentException($"Unknown provider '{providerName}'. Use anthropic, openai or lemonade."),
 };
+
+var keyVariable = profile.Provider switch
+{
+    AiProvider.Anthropic => "ANTHROPIC_API_KEY",
+    AiProvider.OpenAI => "OPENAI_API_KEY",
+    _ => null,
+};
+if (keyVariable is not null && string.IsNullOrEmpty(Environment.GetEnvironmentVariable(keyVariable)))
+{
+    var enteredKey = ReadSecret($"{keyVariable} is not set. Paste the key (input hidden) and press Enter: ");
+    if (enteredKey.Length == 0)
+        throw new InvalidOperationException("No API key entered.");
+    profile = profile with { ApiKey = enteredKey };
+}
 
 using var client = ChatClientFactory.Create(profile);
 var drafts = new List<LogDraft>();
@@ -67,4 +83,31 @@ foreach (var phrase in phrases)
     if (drafts.Count == 0)
         Console.WriteLine("  (no tool call)");
     Console.WriteLine($"  reply: {response.Text.Trim()}");
+}
+
+static string ReadSecret(string prompt)
+{
+    Console.Write(prompt);
+    if (Console.IsInputRedirected)
+        return Console.ReadLine()?.Trim() ?? "";
+
+    var secret = new System.Text.StringBuilder();
+    while (true)
+    {
+        var key = Console.ReadKey(intercept: true);
+        if (key.Key == ConsoleKey.Enter)
+            break;
+        if (key.Key == ConsoleKey.Backspace)
+        {
+            if (secret.Length > 0)
+                secret.Length--;
+            continue;
+        }
+
+        if (!char.IsControl(key.KeyChar))
+            secret.Append(key.KeyChar);
+    }
+
+    Console.WriteLine($" ({secret.Length} characters)");
+    return secret.ToString().Trim();
 }

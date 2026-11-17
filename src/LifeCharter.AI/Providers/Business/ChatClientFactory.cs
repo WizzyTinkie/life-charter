@@ -34,8 +34,9 @@ public static class ChatClientFactory
 
     private static IChatClient CreateAnthropic(ProviderProfile profile)
     {
-        // Without an explicit key the SDK resolves ANTHROPIC_API_KEY and other standard sources.
-        var client = profile.ApiKey is { } key ? new AnthropicClient { ApiKey = key } : new AnthropicClient();
+        // Resolve the key here instead of letting the SDK fall back silently, so a missing key
+        // fails before the first request with a message that says what to set.
+        var client = new AnthropicClient { ApiKey = profile.ApiKey ?? RequiredEnvironment("ANTHROPIC_API_KEY") };
         return client.AsIChatClient(profile.Model, DefaultMaxTokens);
     }
 
