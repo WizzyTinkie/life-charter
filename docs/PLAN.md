@@ -320,8 +320,8 @@ Installed here: `lemonade-server 2026.43.3` (`lemond`, port 13305, `max_loaded_m
 
 **Lifecycle:**
 - If `lemond` is not reachable, start it: `systemctl --user start lemond` on Linux, or the bundled `lemond` as a child process on Windows.
-- Load the model on first AI request; unload it after 10 min idle.
-- Thinking off for quick entry; prefer JSON-schema constrained output over free-form tool calls on small models; validate the result and retry once on failure.
+- Load the model on first AI request with **`POST /api/v1/load {"model_name", "ctx_size": 8192}`**. Never rely on Lemonade's default context size: it reserves the full 262K context (+12.5 GB VRAM instead of +4.3 GB). Unload with `POST /api/v1/unload` after 10 min idle.
+- Thinking off for quick entry (`chat_template_kwargs.enable_thinking=false`, sent with `LocalModelOptions.DisableThinking`); Phase 0 measured 0.4–0.8 s per tool call instead of 1.5–1.7 s. Keep thinking on for local planning. Validate every result and retry once on failure.
 
 **Bundling:** on Linux, depend on the `lemonade-server` package. On Windows, the installer sets Lemonade up silently if it is missing, or ships a portable `lemond`. Check Lemonade's licence before redistributing it.
 
@@ -446,7 +446,7 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 | (a) Windows | ⬜ Code written (`WS_EX_TOOLWINDOW`, `HWND_BOTTOM`, `WM_WINDOWPOSCHANGING` hook); not run. Surviving `Win+D` still open. |
 | (b) Tree canvas, 1,000 nodes | ✅ Renders on demand: 1 frame at open, then **0 frames while idle**. Pan, zoom, culling, level of detail, click-to-allocate with pulse animation. ⬜ Panning FPS and GPU load need a manual check (overlay shows frames/s). |
 | Energy, tray + widget idle | ✅ 0–0.5% CPU, 0% GPU (15 MB VRAM), PSS 116 MB / RSS 211 MB (Debug build; RSS counts shared NVIDIA libraries) |
-| (c) Lemonade tool call | ⬜ Spike console ready (`spikes/LifeCharter.AiSpike`); needs `lemond` running and the 3.6 GB model downloaded |
+| (c) Lemonade tool call | ✅ `Qwen3.5-4B-GGUF` on the CUDA backend: 3/3 correct `propose_log` calls, including Czech with a Czech reply. **Thinking off: 0.4–0.8 s** per tool call + reply; thinking on: 1.5–1.7 s. Cold load 1.9 s. VRAM **+4.3 GB with `ctx_size` 8192**, but +12.5 GB with Lemonade's default (full 262K context). Unload returns VRAM to baseline. Peak 221 W during inference bursts. |
 | (d) Haiku / Luna tool calls | ⬜ Same console; needs `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
 | (e) FSRS | ✅ `FSRS.Core` 1.0.7 implements FSRS-6 (21 weights). All-Good reviews reach Engraved in 6 reviews over 289 days, so a minimum-review guard was added (section 4). |
 | (f) Snapshot sync | ✅ 6 tests: offline edits on both devices converge, last writer wins, tombstones propagate, idempotent merge, atomic export |

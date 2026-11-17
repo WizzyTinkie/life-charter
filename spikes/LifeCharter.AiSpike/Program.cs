@@ -9,7 +9,10 @@ using Microsoft.Extensions.AI;
 //   dotnet run --project spikes/LifeCharter.AiSpike -- anthropic   [model]   (ANTHROPIC_API_KEY)
 //   dotnet run --project spikes/LifeCharter.AiSpike -- openai      [model]   (OPENAI_API_KEY)
 //   dotnet run --project spikes/LifeCharter.AiSpike -- lemonade    [model]   (lemond on :13305)
+// Add --think to keep the local model's thinking phase (off by default for Lemonade).
 
+var think = args.Contains("--think");
+args = [.. args.Where(arg => arg != "--think")];
 var providerName = args.Length > 0 ? args[0].ToLowerInvariant() : "lemonade";
 var profile = providerName switch
 {
@@ -35,6 +38,8 @@ var proposeLog = AIFunctionFactory.Create(
     "Propose one activity log entry parsed from the user's note.");
 
 var options = new ChatOptions { Tools = [proposeLog], Temperature = 0 };
+if (profile.Provider == AiProvider.Lemonade && !think)
+    LocalModelOptions.DisableThinking(options);
 string[] phrases =
 [
     "ran 5k in 28 minutes",
@@ -42,7 +47,7 @@ string[] phrases =
     "drank 2 liters of water",
 ];
 
-Console.WriteLine($"Provider: {profile.Provider}, model: {profile.Model}");
+Console.WriteLine($"Provider: {profile.Provider}, model: {profile.Model}, thinking: {(profile.Provider != AiProvider.Lemonade || think ? "default" : "off")}");
 foreach (var phrase in phrases)
 {
     drafts.Clear();
