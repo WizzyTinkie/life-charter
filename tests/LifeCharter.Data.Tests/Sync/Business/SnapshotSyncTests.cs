@@ -22,12 +22,13 @@ public sealed class SnapshotSyncTests : IAsyncLifetime
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
+    private string SyncFolder => Path.Combine(root, "Sync", "LifeCharter");
+
     public async ValueTask InitializeAsync()
     {
-        var syncFolder = Path.Combine(root, "Sync", "LifeCharter");
         Directory.CreateDirectory(root);
-        linux = await Device.CreateAsync(Path.Combine(root, "linux.db"), LinuxId, syncFolder);
-        windows = await Device.CreateAsync(Path.Combine(root, "windows.db"), WindowsId, syncFolder);
+        linux = await Device.CreateAsync(Path.Combine(root, "linux.db"), LinuxId, SyncFolder);
+        windows = await Device.CreateAsync(Path.Combine(root, "windows.db"), WindowsId, SyncFolder);
     }
 
     public async ValueTask DisposeAsync()
@@ -126,6 +127,25 @@ public sealed class SnapshotSyncTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Snapshot_from_an_older_schema_still_merges()
+    {
+        // This device has a newer schema: log_entries gained a "note" column.
+        SyncedTable[] newerTables =
+        [
+            Tables[0],
+            new("log_entries", SyncKind.AppendOnly, ["id", "node_id", "amount", "note"]),
+        ];
+        await using var newer = await Device.CreateAsync(
+            Path.Combine(root, "newer.db"), "0193c3-newer", SyncFolder, newerTables, "ALTER TABLE log_entries ADD COLUMN note TEXT;");
+
+        await windows.AddLogAsync("l1", "n1", 2);
+        await windows.ExportAsync(Stamp(100, WindowsId));
+        await newer.MergeAsync();
+
+        Assert.Equal(["l1"], await newer.LogIdsAsync());
+    }
+
+    [Fact]
     public void Merge_sql_for_last_writer_wins_compares_updated_at()
     {
         var sql = SnapshotSync.BuildMergeSql(Tables[0]);
@@ -155,16 +175,21 @@ public sealed class SnapshotSyncTests : IAsyncLifetime
             this.sync = sync;
         }
 
-        public static async Task<Device> CreateAsync(string dbPath, string deviceId, string syncFolder)
+        public static async Task<Device> CreateAsync(
+            string dbPath,
+            string deviceId,
+            string syncFolder,
+            IReadOnlyList<SyncedTable>? tables = null,
+            string extraSchema = "")
         {
             var db = new SqliteConnection($"Data Source={dbPath};Pooling=False");
             await db.OpenAsync(Cancellation);
-            var device = new Device(db, new SnapshotSync(syncFolder, deviceId, Tables));
+            var device = new Device(db, new SnapshotSync(syncFolder, deviceId, tables ?? Tables));
             await device.ExecuteAsync("""
                 PRAGMA journal_mode = WAL;
                 CREATE TABLE nodes (id TEXT PRIMARY KEY, title TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT);
                 CREATE TABLE log_entries (id TEXT PRIMARY KEY, node_id TEXT NOT NULL, amount REAL NOT NULL);
-                """);
+                """ + extraSchema);
             return device;
         }
 

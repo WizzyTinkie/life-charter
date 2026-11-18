@@ -35,12 +35,17 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
         Goals = new ObservableCollection<GoalItemViewModel>(progress.Goals.Select(goalProgress =>
             new GoalItemViewModel(session, goalsById[goalProgress.GoalId], goalProgress, isEditing)));
 
+        RecentEntries = new ObservableCollection<RecentEntryViewModel>(session.RecentEntries(node.Id, RecentEntryCount)
+            .Select(entry => new RecentEntryViewModel(session, entry.Id, ProgressText.Entry(entry, session.Zone, session.Today))));
+
         Title = node.Title;
         Description = node.Description;
         Attribute = node.Attribute;
         Kind = node.Kind;
         RetentionModel = node.RetentionModel;
     }
+
+    private const int RecentEntryCount = 5;
 
     public static IReadOnlyList<LifeAttribute> Attributes { get; } = Enum.GetValues<LifeAttribute>();
 
@@ -69,6 +74,10 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
     public bool HasGoals => Goals.Count > 0;
 
     public ObservableCollection<GoalItemViewModel> Goals { get; }
+
+    public ObservableCollection<RecentEntryViewModel> RecentEntries { get; }
+
+    public bool HasRecentEntries => RecentEntries.Count > 0;
 
     [ObservableProperty]
     public partial string Title { get; set; }

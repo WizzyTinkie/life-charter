@@ -44,7 +44,7 @@ public static class AllocationRules
         return training >= ProgressionRules.WorkInProgressLimit ? AllocationBlock.WorkInProgressLimit : AllocationBlock.None;
     }
 
-    /// <summary>Abandoning a node in training refunds its point. Mastered nodes stay.</summary>
+    /// <summary>Abandoning a node in training refunds its point. Mastered nodes stay mastered (their point is already back).</summary>
     public static bool CanRefund(Guid nodeId, ProgressionResult progression) =>
         progression.Nodes.TryGetValue(nodeId, out var progress) && progress.State == NodeState.Training;
 }

@@ -2,7 +2,10 @@ using LifeCharter.Core.Sync.Models;
 
 namespace LifeCharter.Core.Journal.Models;
 
-/// <summary>Something you did. Append-only: corrections are new entries, never edits.</summary>
+/// <summary>
+/// Something you did. Append-only: an undo is a new entry whose <see cref="RetractsEntryId"/>
+/// points at the entry it cancels, never an edit or delete.
+/// </summary>
 public sealed class LogEntry : AppendOnlyEntity
 {
     public Guid NodeId { get; set; }
@@ -16,4 +19,7 @@ public sealed class LogEntry : AppendOnlyEntity
     public string Unit { get; set; } = "";
     public string Note { get; set; } = "";
     public EntrySource Source { get; set; } = EntrySource.Manual;
+
+    /// <summary>When set, this entry only cancels the entry with that id.</summary>
+    public Guid? RetractsEntryId { get; set; }
 }

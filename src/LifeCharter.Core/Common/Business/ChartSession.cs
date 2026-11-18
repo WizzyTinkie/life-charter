@@ -1,6 +1,7 @@
 using LifeCharter.Core.Common.Interfaces;
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Goals.Models;
+using LifeCharter.Core.Journal.Business;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Business;
 using LifeCharter.Core.Progression.Models;
@@ -74,6 +75,36 @@ public sealed class ChartSession(ILifeChartStore store, TimeProvider timeProvide
         };
         await store.AddEntryAsync(entry, cancellationToken).ConfigureAwait(false);
         await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Entries that still count, newest first; optionally only those of one node.</summary>
+    public IReadOnlyList<LogEntry> RecentEntries(Guid? nodeId, int count) =>
+        JournalRules.EffectiveEntries(Chart.Entries)
+            .Where(entry => nodeId is null || entry.NodeId == nodeId)
+            .OrderByDescending(entry => entry.Timestamp)
+            .Take(count)
+            .ToList();
+
+    /// <summary>Cancels an entry by adding a retraction; the original stays in the history.</summary>
+    public async Task<bool> UndoEntryAsync(Guid entryId, CancellationToken cancellationToken = default)
+    {
+        var entry = JournalRules.EffectiveEntries(Chart.Entries).FirstOrDefault(e => e.Id == entryId);
+        if (entry is null)
+            return false;
+
+        await store.AddEntryAsync(new LogEntry
+        {
+            NodeId = entry.NodeId,
+            GoalId = entry.GoalId,
+            Amount = 0,
+            Unit = entry.Unit,
+            Note = "undo",
+            Source = entry.Source,
+            Timestamp = timeProvider.GetUtcNow(),
+            RetractsEntryId = entry.Id,
+        }, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     /// <summary>Creates a node at a world position, optionally linked to an existing node, with a starter milestone goal.</summary>

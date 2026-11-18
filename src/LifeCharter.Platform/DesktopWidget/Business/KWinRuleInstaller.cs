@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LifeCharter.Platform.Storage.Business;
 using Microsoft.Extensions.Logging;
 using Tmds.DBus.Protocol;
 
@@ -14,10 +15,15 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
     private const string ConfigFile = "kwinrulesrc";
     private const string RuleGroup = "lifecharter-desktop-widget";
 
-    // KWin rule policies: 2 = Force, 4 = Remember. String match: 1 = exact.
+    // KWin rule policy 2 = Force. String match: 1 = exact. Placement policy 0 = none.
     private const string Force = "2";
-    private const string Remember = "4";
+    private const string NoPlacement = "0";
     private const string ExactMatch = "1";
+
+    private static readonly TimeSpan ReloadSettleTime = TimeSpan.FromMilliseconds(500);
+
+    private static readonly string[] ObsoleteKeys =
+        ["title", "titlematch", "position", "positionrule", "ignoregeometry", "ignoregeometryrule"];
 
     public static bool IsKdePlasma =>
         OperatingSystem.IsLinux() &&
@@ -25,8 +31,9 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
 
     /// <summary>
     /// Installs or refreshes the rule for windows whose Wayland app id (window class) is
-    /// <paramref name="appId"/>. The app id is set before the window maps, unlike the title,
-    /// so KWin matches it when the window first appears.
+    /// <paramref name="appId"/>. Writes and reloads KWin only when the rule changed: a reload
+    /// racing with the widget's first appearance makes KWin apply the rules late, which leaves
+    /// a stale title-bar margin on the fixed-size widget.
     /// </summary>
     public async Task<bool> EnsureDesktopWidgetRuleAsync(string appId, CancellationToken cancellationToken = default)
     {
@@ -35,6 +42,10 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
 
         try
         {
+            var entries = RuleEntries(appId);
+            if (await IsUpToDateAsync(entries, cancellationToken))
+                return true;
+
             // Plasma 6.8 keeps the rule list in General/Order; older releases used rules + count.
             var legacyRules = await ReadAsync("General", "rules", cancellationToken);
             var order = await ReadAsync("General", "Order", cancellationToken);
@@ -57,36 +68,18 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
                 }
             }
 
-            (string Key, string Value)[] entries =
-            [
-                ("Description", "LifeCharter desktop widget (keep below, no taskbar)"),
-                ("wmclass", appId),
-                ("wmclassmatch", ExactMatch),
-                ("wmclasscomplete", "false"),
-                ("below", "true"),
-                ("belowrule", Force),
-                ("skiptaskbar", "true"),
-                ("skiptaskbarrule", Force),
-                ("skippager", "true"),
-                ("skippagerrule", Force),
-                ("skipswitcher", "true"),
-                ("skipswitcherrule", Force),
-                ("decorationpolicy", "none"),
-                ("decorationpolicyrule", Force),
-                ("desktops", "\\0"),
-                ("desktopsrule", Force),
-                ("position", "40,60"),
-                ("positionrule", Remember),
-            ];
+            foreach (var entry in entries)
+                await WriteAsync(RuleGroup, entry.Key, entry.Value, cancellationToken);
 
-            foreach (var (key, value) in entries)
-                await WriteAsync(RuleGroup, key, value, cancellationToken);
-
-            // Drop the title match written by earlier spike builds.
-            await DeleteAsync(RuleGroup, "title", cancellationToken);
-            await DeleteAsync(RuleGroup, "titlematch", cancellationToken);
+            // Drop keys written by earlier builds. Position is handled by KWinWidgetPlacer,
+            // because KWin ignores a position rule for this window.
+            foreach (var obsolete in ObsoleteKeys)
+                await DeleteAsync(RuleGroup, obsolete, cancellationToken);
 
             await ReconfigureKWinAsync();
+
+            // Give KWin a moment to load the rules before the widget appears.
+            await Task.Delay(ReloadSettleTime, cancellationToken);
             logger.LogInformation("KWin rule {Rule} installed for app id {AppId}", RuleGroup, appId);
             return true;
         }
@@ -95,6 +88,46 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
             logger.LogWarning(ex, "Could not install the KWin rule; the widget will stack like a normal window");
             return false;
         }
+    }
+
+    private static IReadOnlyList<RuleEntry> RuleEntries(string appId) =>
+    [
+        new("Description", "LifeCharter desktop widget (keep below, no taskbar)"),
+        new("wmclass", appId),
+        new("wmclassmatch", ExactMatch),
+        new("wmclasscomplete", "false"),
+        new("below", "true"),
+        new("belowrule", Force),
+        new("skiptaskbar", "true"),
+        new("skiptaskbarrule", Force),
+        new("skippager", "true"),
+        new("skippagerrule", Force),
+        new("skipswitcher", "true"),
+        new("skipswitcherrule", Force),
+        new("decorationpolicy", "none"),
+        new("decorationpolicyrule", Force),
+
+        // KWin's placement policy (often Centered) is not needed: KWinWidgetPlacer moves the widget.
+        new("placement", NoPlacement),
+        new("placementrule", Force),
+        new("desktops", "\\0"),
+        new("desktopsrule", Force),
+    ];
+
+    private static async Task<bool> IsUpToDateAsync(IReadOnlyList<RuleEntry> entries, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(AppPaths.UserConfigHome, ConfigFile);
+        if (!File.Exists(path))
+            return false;
+
+        var groups = KConfigFile.Parse(await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false));
+        if (!groups.TryGetValue("General", out var general) || !groups.TryGetValue(RuleGroup, out var rule))
+            return false;
+
+        var order = general.GetValueOrDefault("Order") ?? general.GetValueOrDefault("rules") ?? "";
+        return order.Split(',', StringSplitOptions.TrimEntries).Contains(RuleGroup) &&
+               entries.All(entry => rule.TryGetValue(entry.Key, out var value) && value == entry.Value) &&
+               !ObsoleteKeys.Any(rule.ContainsKey);
     }
 
     private static async Task ReconfigureKWinAsync()
@@ -136,4 +169,6 @@ public sealed class KWinRuleInstaller(ILogger<KWinRuleInstaller> logger)
 
         return output.Trim();
     }
+
+    private readonly record struct RuleEntry(string Key, string Value);
 }

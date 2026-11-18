@@ -201,6 +201,10 @@ namespace LifeCharter.Data.Storage.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("quest_id");
 
+                    b.Property<Guid?>("RetractsEntryId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("retracts_entry_id");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasColumnType("TEXT")

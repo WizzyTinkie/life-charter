@@ -1,4 +1,6 @@
+using System.Globalization;
 using LifeCharter.Core.Goals.Models;
+using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
 
 namespace LifeCharter.App.SkillTree.Business;
@@ -32,6 +34,19 @@ public static class ProgressText
         AllocationBlock.WorkInProgressLimit => "3 nodes of this attribute are already in training. Finish or refund one.",
         _ => block.ToString(),
     };
+
+    /// <summary>"2 l · today 14:02 · after run"</summary>
+    public static string Entry(LogEntry entry, TimeZoneInfo zone, DateOnly today)
+    {
+        var local = TimeZoneInfo.ConvertTime(entry.Timestamp, zone);
+        var date = DateOnly.FromDateTime(local.DateTime);
+        var day = date == today ? "today"
+            : date == today.AddDays(-1) ? "yesterday"
+            : local.ToString("ddd d MMM", CultureInfo.CurrentCulture);
+        var amount = string.IsNullOrWhiteSpace(entry.Unit) ? $"{entry.Amount:0.##}×" : $"{entry.Amount:0.##} {entry.Unit}";
+        var note = string.IsNullOrWhiteSpace(entry.Note) ? "" : $" · {entry.Note}";
+        return $"{amount} · {day} {local:HH:mm}{note}";
+    }
 
     /// <summary>A sensible amount to pre-fill when logging towards a goal.</summary>
     public static double DefaultAmount(Goal goal) =>

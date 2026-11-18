@@ -41,6 +41,11 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasLastEntry}">
+        <TextBlock Text="{Binding LastEntryText}" FontSize="11" Foreground="#9AA0AE" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="1" Content="Undo" Command="{Binding UndoLastCommand}" FontSize="11" Padding="6,1" Margin="6,0,0,0" />
+      </Grid>
+
       <TextBox x:Name="QuickEntry" PlaceholderText="Quick entry arrives in Phase 3" IsEnabled="False" />
     </StackPanel>
   </Border>

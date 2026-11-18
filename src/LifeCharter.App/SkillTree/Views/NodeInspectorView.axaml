@@ -76,6 +76,20 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <StackPanel Spacing="4" IsVisible="{Binding HasRecentEntries}">
+        <TextBlock Text="Recent entries" FontWeight="SemiBold" />
+        <ItemsControl ItemsSource="{Binding RecentEntries}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RecentEntryViewModel">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Text="{Binding Text}" FontSize="12" Foreground="#C8CCD6" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button Grid.Column="1" Content="Undo" Command="{Binding UndoCommand}" FontSize="12" Padding="8,2" Margin="8,0,0,0" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
       <StackPanel Spacing="6" IsVisible="{Binding CanEditNode}">
         <Button Content="Add goal" Command="{Binding AddGoalCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
         <Button Content="Delete node" Command="{Binding DeleteNodeCommand}" Foreground="#E5484D"

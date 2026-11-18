@@ -1,4 +1,5 @@
 using LifeCharter.Core.Common.Models;
+using LifeCharter.Core.Journal.Business;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
 using LifeCharter.Core.SkillTree.Models;
@@ -20,7 +21,8 @@ public static class ProgressionCalculator
             .Where(edge => edge.DeletedAt is null && nodes.ContainsKey(edge.FromNodeId) && nodes.ContainsKey(edge.ToNodeId))
             .ToList();
 
-        var entriesByNode = data.Entries.Where(entry => nodes.ContainsKey(entry.NodeId)).ToLookup(entry => entry.NodeId);
+        var entries = JournalRules.EffectiveEntries(data.Entries).Where(entry => nodes.ContainsKey(entry.NodeId)).ToList();
+        var entriesByNode = entries.ToLookup(entry => entry.NodeId);
         var goalsByNode = goals.ToLookup(goal => goal.NodeId);
         var allocated = AllocatedNodes(data.Allocations, nodes);
 
@@ -54,14 +56,18 @@ public static class ProgressionCalculator
         }
 
         var xpByAttribute = Enum.GetValues<LifeAttribute>().ToDictionary(attribute => attribute, _ => 0);
-        foreach (var entry in XpEarningEntries(data.Entries, nodes, zone))
+        foreach (var entry in XpEarningEntries(entries, nodes, zone))
             xpByAttribute[nodes[entry.NodeId].Attribute] += ProgressionRules.EntryXp;
         foreach (var nodeId in mastered.Where(id => nodes[id].Kind != NodeKind.Root))
             xpByAttribute[nodes[nodeId].Attribute] += nodes[nodeId].XpReward;
 
         var totalXp = xpByAttribute.Values.Sum();
         var level = LevelCurve.LevelFor(totalXp);
-        var skillPoints = Math.Max(0, ProgressionRules.StartingSkillPoints + level.Level - 1 - allocated.Count);
+
+        // Mastering gives the point back: points work as training slots, so finishing a node
+        // always lets you pick the next one and progress can never stall.
+        var training = allocated.Count(id => !mastered.Contains(id));
+        var skillPoints = Math.Max(0, ProgressionRules.StartingSkillPoints + level.Level - 1 - training);
 
         return new ProgressionResult(new CharacterProgress(level, totalXp, skillPoints, xpByAttribute), nodeProgress);
     }

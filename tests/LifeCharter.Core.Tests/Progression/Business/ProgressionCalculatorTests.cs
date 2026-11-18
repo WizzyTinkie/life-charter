@@ -83,6 +83,21 @@ public sealed class ProgressionCalculatorTests
     }
 
     [Fact]
+    public void Mastering_a_node_returns_its_point()
+    {
+        var courses = chart.Node("Courses");
+        chart.Goal(courses, GoalMetric.Milestone);
+        chart.Allocate(courses);
+        Assert.Equal(ProgressionRules.StartingSkillPoints - 1, chart.Compute().Character.SkillPoints);
+
+        chart.Log(courses);
+
+        var result = chart.Compute();
+        Assert.Equal(NodeState.Mastered, result.Nodes[courses.Id].State);
+        Assert.Equal(ProgressionRules.StartingSkillPoints, result.Character.SkillPoints);
+    }
+
+    [Fact]
     public void Refund_frees_the_node_and_its_point()
     {
         var mind = chart.Node("Mind");
@@ -107,6 +122,33 @@ public sealed class ProgressionCalculatorTests
         chart.Allocate(basics);
         chart.Log(basics);
         Assert.Equal(NodeState.Available, chart.StateOf(advanced));
+    }
+
+    [Fact]
+    public void Retracted_entry_no_longer_counts_for_goals_or_xp()
+    {
+        var courses = chart.Node("Courses", xpReward: 50);
+        chart.Goal(courses, GoalMetric.Milestone);
+        chart.Allocate(courses);
+        var entry = chart.Log(courses);
+        Assert.Equal(NodeState.Mastered, chart.StateOf(courses));
+
+        chart.Retract(entry);
+
+        var result = chart.Compute();
+        Assert.Equal(NodeState.Training, result.Nodes[courses.Id].State);
+        Assert.Equal(0, result.Character.TotalXp);
+    }
+
+    [Fact]
+    public void Retraction_frees_the_daily_xp_cap_for_the_next_entry()
+    {
+        var water = chart.Node("Hydration");
+        var entries = Enumerable.Range(0, ProgressionRules.DailyEntryCapPerGoal).Select(_ => chart.Log(water)).ToList();
+        chart.Retract(entries[0]);
+        chart.Log(water);
+
+        Assert.Equal(ProgressionRules.DailyEntryCapPerGoal * ProgressionRules.EntryXp, chart.Compute().Character.TotalXp);
     }
 
     [Fact]

@@ -12,5 +12,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/LifeCharter.Core.Tests/LifeCharter.Core.Tests.csproj" />
     <Project Path="tests/LifeCharter.Data.Tests/LifeCharter.Data.Tests.csproj" />
+    <Project Path="tests/LifeCharter.Platform.Tests/LifeCharter.Platform.Tests.csproj" />
   </Folder>
 </Solution>

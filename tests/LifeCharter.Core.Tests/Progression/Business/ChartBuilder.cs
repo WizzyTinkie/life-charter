@@ -87,6 +87,16 @@ internal sealed class ChartBuilder
         return entry;
     }
 
+    public void Retract(LogEntry entry) =>
+        entries.Add(new LogEntry
+        {
+            NodeId = entry.NodeId,
+            GoalId = entry.GoalId,
+            Amount = 0,
+            RetractsEntryId = entry.Id,
+            Timestamp = entry.Timestamp.AddMinutes(1),
+        });
+
     public void Delete(SkillNode node) => node.DeletedAt = "deleted";
 
     public LifeChartData Build() => new(nodes, edges, goals, [], entries, allocations);

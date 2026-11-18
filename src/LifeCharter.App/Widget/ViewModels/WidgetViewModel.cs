@@ -42,10 +42,21 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string TodayHeader { get; set; } = "";
 
+    [ObservableProperty]
+    public partial string LastEntryText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial bool HasLastEntry { get; set; }
+
+    private Guid? lastEntryId;
+
     public void Dispose() => session.Changed -= OnSessionChanged;
 
     [RelayCommand]
     private void OpenTree() => openTree();
+
+    [RelayCommand]
+    private Task UndoLastAsync() => lastEntryId is { } id ? session.UndoEntryAsync(id) : Task.CompletedTask;
 
     private void OnSessionChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(Refresh);
 
@@ -75,6 +86,16 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
             var text = $"{nodes[item.NodeId].Title} · {ProgressText.Goal(item.Goal, item.Progress)}";
             Today.Add(new TodayItemViewModel(session, item.NodeId, item.Goal.Id, text, ProgressText.DefaultAmount(item.Goal), item.Goal.Unit));
         }
+
+        // Offer undo for today's most recent entry.
+        var last = session.RecentEntries(null, 1).FirstOrDefault();
+        var lastIsToday = last is not null &&
+                          DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(last.Timestamp, session.Zone).DateTime) == session.Today;
+        lastEntryId = lastIsToday ? last!.Id : null;
+        HasLastEntry = lastIsToday;
+        LastEntryText = lastIsToday && nodes.TryGetValue(last!.NodeId, out var lastNode)
+            ? $"Last: {lastNode.Title} · {ProgressText.Entry(last, session.Zone, session.Today)}"
+            : "";
 
         TodayHeader = open.Count == 0
             ? session.Progression.Nodes.Values.Any(p => p.State == NodeState.Training) ? "All done for today 🎉" : "Allocate a node to start training"

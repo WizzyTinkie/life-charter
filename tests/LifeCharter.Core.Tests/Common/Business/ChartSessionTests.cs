@@ -78,6 +78,37 @@ public sealed class ChartSessionTests
     }
 
     [Fact]
+    public async Task Undo_adds_a_retraction_and_hides_the_entry()
+    {
+        var water = chart.Nodes.Single(node => node.Title == "Hydration");
+        var entry = new LogEntry { NodeId = water.Id, Amount = 2, Unit = "l", Timestamp = Now.AddMinutes(-5) };
+        store.LoadAsync(Arg.Any<CancellationToken>()).Returns(chart with { Entries = [entry] });
+        await session.ReloadAsync(Cancellation);
+        Assert.Single(session.RecentEntries(water.Id, 5));
+
+        var undone = await session.UndoEntryAsync(entry.Id, Cancellation);
+
+        Assert.True(undone);
+        await store.Received(1).AddEntryAsync(
+            Arg.Is<LogEntry>(e => e.RetractsEntryId == entry.Id && e.NodeId == water.Id && e.Amount == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Recent_entries_skip_retracted_ones()
+    {
+        var water = chart.Nodes.Single(node => node.Title == "Hydration");
+        var kept = new LogEntry { NodeId = water.Id, Timestamp = Now.AddMinutes(-10) };
+        var undone = new LogEntry { NodeId = water.Id, Timestamp = Now.AddMinutes(-5) };
+        var retraction = new LogEntry { NodeId = water.Id, Timestamp = Now.AddMinutes(-4), RetractsEntryId = undone.Id };
+        store.LoadAsync(Arg.Any<CancellationToken>()).Returns(chart with { Entries = [kept, undone, retraction] });
+
+        await session.ReloadAsync(Cancellation);
+
+        Assert.Equal([kept.Id], session.RecentEntries(null, 10).Select(e => e.Id));
+    }
+
+    [Fact]
     public async Task Root_cannot_be_deleted()
     {
         await session.ReloadAsync(Cancellation);

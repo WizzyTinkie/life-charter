@@ -142,7 +142,7 @@ Locked → Available → Training → Mastered → Fortified → Engraved
 
 1. **Doing things earns XP**, with a daily XP cap per quest, so spamming one easy habit does not pay.
 2. **Levels earn skill points.** The XP curve starts at about `100 × level^1.5`; each level grants 1 point.
-3. **Spending a point allocates a node** (PoE path rule or `Requires` edges), which commits you to its goal.
+3. **Spending a point allocates a node** (PoE path rule or `Requires` edges), which commits you to its goal. **Mastering the node returns the point**, so points act as training slots: `3 + (level − 1) − nodes in training`. A pace simulation showed that permanent points (the PoE rule) stall progress after about 6 nodes; with returned points it never stalls.
 4. **Work-in-progress limit:** at most 3 nodes in Training per attribute (configurable).
 5. **Shame-free respec:** abandoning a goal refunds its point.
 6. **Time-boxed challenges** (for example 30 days of cold showers) are ordinary nodes whose goal has a deadline; no special node kind.
@@ -335,13 +335,13 @@ The menu contains: **Open tree** · **Peek widget** · **Quick entry** · **Toda
 
 ### Desktop widget (Avalonia, both OSes)
 
-One Avalonia window: frameless, transparent, no taskbar or Alt-Tab entry, on all virtual desktops, at a remembered position, **always under all other windows**. Contents: level ring, 3 attribute bars, today's threats (tap to defend), a quick-entry field, an "Open tree" button. Layouts: compact, threats and full; several widgets can be open at once.
+One Avalonia window: frameless, transparent, no taskbar or Alt-Tab entry, on all virtual desktops, where you last dragged it (or in a corner chosen in the tray menu → Widget position), **always under all other windows**. Contents: level ring, 3 attribute bars, today's threats (tap to defend), a quick-entry field, an "Open tree" button. Layouts: compact, threats and full; several widgets can be open at once.
 
 **Keeping it under all windows:**
 
 | OS | How |
 |---|---|
-| **KDE Plasma (Wayland)** | Wayland does not let an app set its own stacking order or position. On first run the app therefore installs a **KWin window rule** — plain config, no scripting. The rule matches the window title `LifeCharter Widget` and forces: keep below, skip taskbar/pager/switcher, all desktops, no border, remembered position. The app writes it to `~/.config/kwinrulesrc` and tells KWin to reload its config over D-Bus. Spike 0 confirms the exact rule keys. |
+| **KDE Plasma (Wayland)** | Wayland does not let an app set its own stacking order or position. The app installs a **KWin window rule** matched by the widget's own app id (`lifecharter-widget`): keep below, skip taskbar/pager/switcher, all desktops, no border, no placement. It writes `~/.config/kwinrulesrc` and reloads KWin over D-Bus **only when the rule changed**. KWin ignores a position rule for this window, so the corner is set by a one-off **KWin script** (loaded over D-Bus) that moves the widget within the work area. KWin applies the move only after the widget commits a new frame, so the app nudges the widget's opacity to commit a few frames. The widget **remembers where you drag it**: the app cannot read its own position on Wayland, so after a drag it asks KWin over D-Bus (window search + `getWindowInfo`) until the position settles, and saves it in the device-local settings; it also saves on quit. Saved positions are clamped to the work area on restore. |
 | KDE fallback | Run the Linux build on Avalonia's X11 backend (XWayland) and set `_NET_WM_STATE_BELOW` and skip-taskbar directly via Xlib on the window handle |
 | **Windows 11** | `WS_EX_TOOLWINDOW` (no taskbar/Alt-Tab) + `WS_EX_NOACTIVATE`, kept at `HWND_BOTTOM` (re-applied in `WM_WINDOWPOSCHANGING`). To survive `Win+D`, attach the window to the desktop window (Progman/WorkerW), as Rainmeter's "On desktop" mode does. Spike 0 checks this. |
 
@@ -442,7 +442,7 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 
 | Spike | Result |
 |---|---|
-| (a) Tray + desktop widget (KDE) | ✅ Tray icon, frameless transparent widget, Peek overlay, single instance over a named pipe (a second launch forwards its command and exits in 0.1 s). A KWin rule matched by the widget's own Wayland app id (`lifecharter-widget`) gives keep-below, skip taskbar/switcher, all desktops, no border. Plasma 6.8 stores the rule list in `General/Order`. Matching by title did **not** work, because the title arrives after the window maps. Manual check: widget works OK. ⚠️ The initial position from the rule is not applied yet. |
+| (a) Tray + desktop widget (KDE) | ✅ Tray icon, frameless transparent widget, Peek overlay, single instance over a named pipe (a second launch forwards its command and exits in 0.1 s). A KWin rule matched by the widget's own Wayland app id (`lifecharter-widget`) gives keep-below, skip taskbar/switcher, all desktops, no border. Plasma 6.8 stores the rule list in `General/Order`. Matching by title did **not** work, because the title arrives after the window maps. Manual check: widget works OK. Start position fixed in Phase 1 polish (KWin script + frame commit, see section 8). |
 | (a) Windows | ⏭️ Skipped for now. Code written (`WS_EX_TOOLWINDOW`, `HWND_BOTTOM`, `WM_WINDOWPOSCHANGING` hook) but not run; surviving `Win+D` still open. |
 | (b) Tree canvas, 1,000 nodes | ✅ Renders on demand: 1 frame at open, then **0 frames while idle**. Pan, zoom, culling, level of detail, click-to-allocate with pulse animation. ✅ Manual check: dragging, zooming, selecting and the select animation all feel smooth. |
 | Energy, tray + widget idle | ✅ 0–0.5% CPU, 0% GPU (15 MB VRAM), PSS 116 MB / RSS 211 MB (Debug build; RSS counts shared NVIDIA libraries) |

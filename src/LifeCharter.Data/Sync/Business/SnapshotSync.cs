@@ -143,10 +143,13 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
 
             foreach (var table in tables)
             {
-                if (!await RemoteHasTableAsync(local, table.Name, tx, cancellationToken).ConfigureAwait(false))
+                var remoteColumns = await RemoteColumnsAsync(local, table.Name, tx, cancellationToken).ConfigureAwait(false);
+                if (remoteColumns.Count == 0)
                     continue;
 
-                await ExecuteAsync(local, BuildMergeSql(table), tx, cancellationToken).ConfigureAwait(false);
+                // A device on an older or newer schema may lack or add columns; merge the shared ones.
+                var shared = table with { Columns = table.Columns.Where(remoteColumns.Contains).ToList() };
+                await ExecuteAsync(local, BuildMergeSql(shared), tx, cancellationToken).ConfigureAwait(false);
 
                 if (table.Kind == SyncKind.LastWriterWins)
                 {
@@ -166,13 +169,18 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
         }
     }
 
-    private static async Task<bool> RemoteHasTableAsync(SqliteConnection local, string table, SqliteTransaction tx, CancellationToken cancellationToken)
+    /// <summary>Column names of the remote table; empty when the remote snapshot has no such table.</summary>
+    private static async Task<HashSet<string>> RemoteColumnsAsync(SqliteConnection local, string table, SqliteTransaction tx, CancellationToken cancellationToken)
     {
         await using var cmd = local.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = $"SELECT 1 FROM {RemoteAlias}.sqlite_master WHERE type = 'table' AND name = $name";
-        cmd.Parameters.AddWithValue("$name", table);
-        return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
+        cmd.CommandText = $"SELECT name FROM pragma_table_info($table, '{RemoteAlias}')";
+        cmd.Parameters.AddWithValue("$table", table);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var columns = new HashSet<string>(StringComparer.Ordinal);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            columns.Add(reader.GetString(0));
+        return columns;
     }
 
     private static async Task<HlcStamp?> ReadMaxUpdatedAtAsync(SqliteConnection local, string table, SqliteTransaction tx, CancellationToken cancellationToken)
