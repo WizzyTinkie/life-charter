@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LifeCharter.Core.Common.Business;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.App.SkillTree.ViewModels;
@@ -11,11 +12,13 @@ public sealed partial class TreeWindowViewModel : ObservableObject, IDisposable
 {
     private readonly ChartSession session;
     private readonly Action openHelp;
+    private readonly Action openSiege;
 
-    public TreeWindowViewModel(ChartSession session, Action openHelp)
+    public TreeWindowViewModel(ChartSession session, Action openHelp, Action openSiege)
     {
         this.session = session;
         this.openHelp = openHelp;
+        this.openSiege = openSiege;
         session.Changed += OnSessionChanged;
         Refresh();
     }
@@ -38,6 +41,9 @@ public sealed partial class TreeWindowViewModel : ObservableObject, IDisposable
     public partial string AttributesText { get; set; } = "";
 
     [ObservableProperty]
+    public partial string SiegeText { get; set; } = "";
+
+    [ObservableProperty]
     public partial bool IsEditing { get; set; }
 
     [ObservableProperty]
@@ -50,6 +56,9 @@ public sealed partial class TreeWindowViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void OpenHelp() => openHelp();
+
+    [RelayCommand]
+    private void OpenSiege() => openSiege();
 
     partial void OnIsEditingChanged(bool value) => RefreshInspector();
 
@@ -65,6 +74,11 @@ public sealed partial class TreeWindowViewModel : ObservableObject, IDisposable
         XpText = $"{character.Level.XpIntoLevel} / {character.Level.XpForNextLevel} XP";
         SkillPointsText = character.SkillPoints == 1 ? "1 skill point" : $"{character.SkillPoints} skill points";
         AttributesText = string.Join("   ", Enum.GetValues<LifeAttribute>().Select(a => $"{a} {character.XpByAttribute[a]}"));
+
+        var siege = session.Progression.Siege;
+        SiegeText = !siege.IsStarted ? ""
+            : siege.Today.Kind != SiegeDayKind.Siege ? $"{siege.Today.Kind} day · wards {siege.Wards}"
+            : $"Defended {siege.Today.Defended}/{siege.Today.Attacks.Count} today · wards {siege.Wards} · streak {siege.Streak}";
         RefreshInspector();
     }
 

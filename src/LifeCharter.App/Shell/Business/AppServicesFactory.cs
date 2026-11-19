@@ -22,6 +22,7 @@ public static class AppServicesFactory
 
         await store.InitializeAsync(StarterTemplate.Create(session.Today), cancellationToken);
         await session.ReloadAsync(cancellationToken);
+        await session.StartSiegeIfNeededAsync(cancellationToken);
         return new AppServices(deviceId, contextFactory, session);
     }
 }

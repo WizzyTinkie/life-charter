@@ -1,2 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="FSRS.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="LifeCharter.Core.Tests" />
+  </ItemGroup>
 </Project>

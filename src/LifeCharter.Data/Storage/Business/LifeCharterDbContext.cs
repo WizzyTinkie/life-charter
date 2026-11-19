@@ -2,6 +2,8 @@ using System.Linq.Expressions;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 using LifeCharter.Core.Sync.Business;
 using LifeCharter.Core.Sync.Models;
@@ -23,6 +25,10 @@ public sealed class LifeCharterDbContext(DbContextOptions<LifeCharterDbContext> 
     public DbSet<Quest> Quests => Set<Quest>();
     public DbSet<LogEntry> Entries => Set<LogEntry>();
     public DbSet<Allocation> Allocations => Set<Allocation>();
+    public DbSet<HabitCheck> HabitChecks => Set<HabitCheck>();
+    public DbSet<WardUse> WardUses => Set<WardUse>();
+    public DbSet<Vacation> Vacations => Set<Vacation>();
+    public DbSet<SiegeSettings> SiegeSettings => Set<SiegeSettings>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess) =>
         throw new NotSupportedException("Use SaveChangesAsync (see the async rules in CODING_GUIDELINES.md).");
@@ -45,6 +51,10 @@ public sealed class LifeCharterDbContext(DbContextOptions<LifeCharterDbContext> 
         modelBuilder.Entity<Quest>().ToTable("quests");
         modelBuilder.Entity<LogEntry>().ToTable("log_entries");
         modelBuilder.Entity<Allocation>().ToTable("allocations");
+        modelBuilder.Entity<HabitCheck>().ToTable("habit_checks");
+        modelBuilder.Entity<WardUse>().ToTable("ward_uses");
+        modelBuilder.Entity<Vacation>().ToTable("vacations");
+        modelBuilder.Entity<SiegeSettings>().ToTable("siege_settings");
 
         modelBuilder.Entity<SkillEdge>().HasIndex(edge => edge.FromNodeId);
         modelBuilder.Entity<SkillEdge>().HasIndex(edge => edge.ToNodeId);
@@ -52,6 +62,7 @@ public sealed class LifeCharterDbContext(DbContextOptions<LifeCharterDbContext> 
         modelBuilder.Entity<Quest>().HasIndex(quest => quest.NodeId);
         modelBuilder.Entity<LogEntry>().HasIndex(entry => entry.NodeId);
         modelBuilder.Entity<Allocation>().HasIndex(allocation => allocation.NodeId);
+        modelBuilder.Entity<HabitCheck>().HasIndex(check => check.NodeId);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

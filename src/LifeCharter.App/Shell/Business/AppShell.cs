@@ -7,6 +7,8 @@ using LifeCharter.App.Logging.Business;
 using LifeCharter.App.Settings.Business;
 using LifeCharter.App.Settings.Models;
 using LifeCharter.App.Shell.Models;
+using LifeCharter.App.Siege.ViewModels;
+using LifeCharter.App.Siege.Views;
 using LifeCharter.App.SkillTree.ViewModels;
 using LifeCharter.App.SkillTree.Views;
 using LifeCharter.App.Widget.ViewModels;
@@ -51,6 +53,7 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
     private PeekWindow? peek;
     private TreeWindow? tree;
     private HelpWindow? help;
+    private SiegeSettingsWindow? siegeSettings;
     private SingleInstance? instance;
     private DispatcherTimer? dayTimer;
 
@@ -168,6 +171,8 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
             IsVisible = AutostartService.IsSupported,
         };
         autostart.Click += (_, _) => _ = ToggleAutostartAsync(autostart);
+        var siegeItem = new NativeMenuItem("Siege settings…");
+        siegeItem.Click += (_, _) => ShowSiegeSettings();
         var helpItem = new NativeMenuItem("Help");
         helpItem.Click += (_, _) => ShowHelp();
         var quit = new NativeMenuItem("Quit");
@@ -177,7 +182,7 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         {
             Icon = TrayIconFactory.Create(),
             ToolTipText = "LifeCharter",
-            Menu = [openTree, peekWidget, position, autostart, helpItem, new NativeMenuItemSeparator(), quit],
+            Menu = [openTree, peekWidget, siegeItem, position, autostart, helpItem, new NativeMenuItemSeparator(), quit],
         };
         icon.Clicked += (_, _) => ShowTree();
         return icon;
@@ -395,7 +400,7 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
 
         if (tree is null)
         {
-            tree = new TreeWindow(new TreeWindowViewModel(services.Session, ShowHelp));
+            tree = new TreeWindow(new TreeWindowViewModel(services.Session, ShowHelp, ShowSiegeSettings));
             tree.Closed += (_, _) => tree = null;
             tree.Show();
         }
@@ -413,6 +418,21 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         }
 
         help.Activate();
+    }
+
+    private void ShowSiegeSettings()
+    {
+        if (services is null)
+            return;
+
+        if (siegeSettings is null)
+        {
+            siegeSettings = new SiegeSettingsWindow(new SiegeSettingsViewModel(services.Session));
+            siegeSettings.Closed += (_, _) => siegeSettings = null;
+            siegeSettings.Show();
+        }
+
+        siegeSettings.Activate();
     }
 
     private void TogglePeek()

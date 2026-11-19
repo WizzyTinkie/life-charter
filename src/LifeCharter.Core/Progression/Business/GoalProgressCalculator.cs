@@ -36,15 +36,17 @@ public static class GoalProgressCalculator
 
     /// <summary>
     /// An entry with a goal counts only for that goal. Without one it counts for every goal of
-    /// its node whose unit matches (an empty unit on either side matches anything).
+    /// its node whose unit matches (an empty unit on either side matches anything). Recall
+    /// sessions (rated entries) never count for goals.
     /// </summary>
     public static bool CountsFor(Goal goal, LogEntry entry) =>
-        entry.GoalId is { } goalId
+        entry.Rating is null &&
+        (entry.GoalId is { } goalId
             ? goalId == goal.Id
             : entry.NodeId == goal.NodeId &&
               (string.IsNullOrWhiteSpace(goal.Unit) ||
                string.IsNullOrWhiteSpace(entry.Unit) ||
-               string.Equals(goal.Unit.Trim(), entry.Unit.Trim(), StringComparison.OrdinalIgnoreCase));
+               string.Equals(goal.Unit.Trim(), entry.Unit.Trim(), StringComparison.OrdinalIgnoreCase)));
 
     public static DateOnly LocalDate(DateTimeOffset timestamp, TimeZoneInfo zone) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timestamp, zone).DateTime);

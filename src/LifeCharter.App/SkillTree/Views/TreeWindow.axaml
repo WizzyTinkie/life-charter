@@ -10,7 +10,7 @@
         Background="#0E0F13">
   <Grid RowDefinitions="Auto,*">
     <Border Background="#14161C" BorderBrush="#22252E" BorderThickness="0,0,0,1" Padding="16,10">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
         <TextBlock Text="{Binding LevelText}" FontSize="22" FontWeight="Bold" Foreground="#E8C36A" VerticalAlignment="Center" />
         <StackPanel Grid.Column="1" Margin="16,0" Spacing="2" VerticalAlignment="Center">
           <ProgressBar Minimum="0" Maximum="1" Value="{Binding XpFraction}" Width="220" Height="8" MinWidth="0" Foreground="#E8C36A" />
@@ -20,8 +20,11 @@
           <TextBlock Text="{Binding SkillPointsText}" FontWeight="SemiBold" />
           <TextBlock Text="{Binding AttributesText}" FontSize="11" Foreground="#9AA0AE" />
         </StackPanel>
-        <ToggleButton Grid.Column="4" Content="Edit tree" IsChecked="{Binding IsEditing}" VerticalAlignment="Center" />
-        <Button Grid.Column="5" Content="Help" Command="{Binding OpenHelpCommand}" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <TextBlock Grid.Column="3" Text="{Binding SiegeText}" FontSize="12" Foreground="#FF9A9D" VerticalAlignment="Center"
+                   HorizontalAlignment="Right" Margin="16,0" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="4" Content="Siege" Command="{Binding OpenSiegeCommand}" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <ToggleButton Grid.Column="5" Content="Edit tree" IsChecked="{Binding IsEditing}" VerticalAlignment="Center" />
+        <Button Grid.Column="6" Content="Help" Command="{Binding OpenHelpCommand}" VerticalAlignment="Center" Margin="8,0,0,0" />
       </Grid>
     </Border>
 

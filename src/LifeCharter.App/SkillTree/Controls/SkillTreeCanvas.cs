@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using LifeCharter.App.SkillTree.Models;
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.SkillTree.Business;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.App.SkillTree.Controls;
@@ -41,6 +42,13 @@ public sealed class SkillTreeCanvas : Control
     private static readonly ImmutablePen LockedOutline = new(new ImmutableSolidColorBrush(Color.Parse("#2E323D")), 2);
     private static readonly ImmutablePen GoldPen = new(GoldBrush, 3);
     private static readonly ImmutablePen ProgressPen = new(GoldBrush, 4, lineCap: PenLineCap.Round);
+    private static readonly ImmutablePen IntegrityPen = new(new ImmutableSolidColorBrush(Color.Parse("#F5A524")), 4, lineCap: PenLineCap.Round);
+    private static readonly ImmutablePen FortifiedPen = new(new ImmutableSolidColorBrush(Color.Parse("#B8C2D6")), 3);
+    private static readonly ImmutablePen EngravedPen = new(GoldBrush, 4);
+    private static readonly ImmutablePen EngravedInnerPen = new(new ImmutableSolidColorBrush(Color.Parse("#E8C36A"), 0.55), 1.5);
+    private static readonly ImmutablePen CorruptedPen = new(new ImmutableSolidColorBrush(Color.Parse("#8E5BB5")), 3, new ImmutableDashStyle([3, 2], 0));
+    private static readonly IImmutableSolidColorBrush AttackBrush = new ImmutableSolidColorBrush(Color.Parse("#FF5A5F"));
+    private static readonly ImmutablePen AttackRim = new(BackgroundBrush, 2);
     private static readonly ImmutablePen SelectionPen = new(new ImmutableSolidColorBrush(Colors.White, 0.85), 2);
     private static readonly ImmutablePen ConnectPen = new(new ImmutableSolidColorBrush(Colors.White, 0.6), 2, new ImmutableDashStyle([6, 4], 0));
     private static readonly Typeface LabelTypeface = new(FontFamily.Default);
@@ -54,6 +62,7 @@ public sealed class SkillTreeCanvas : Control
 
     private static readonly Dictionary<LifeAttribute, IImmutableSolidColorBrush> MasteredFills = Brushes(1);
     private static readonly Dictionary<LifeAttribute, IImmutableSolidColorBrush> TrainingFills = Brushes(0.3);
+    private static readonly Dictionary<LifeAttribute, IImmutableSolidColorBrush> CorruptedFills = Brushes(0.18);
     private static readonly Dictionary<LifeAttribute, ImmutablePen> AvailablePens = Pens(1, 3);
     private static readonly Dictionary<LifeAttribute, ImmutablePen> MasteredEdgePens = Pens(0.85, 4);
     private static readonly Dictionary<LifeAttribute, ImmutablePen> FrontierEdgePens = Pens(0.35, 3);
@@ -122,12 +131,15 @@ public sealed class SkillTreeCanvas : Control
         labels.Clear();
         progressArcs.Clear();
 
+        var undefended = progression.Siege.Today.Attacks.Where(attack => !attack.Defended).Select(attack => attack.NodeId).ToHashSet();
         foreach (var node in chart.Nodes)
         {
             if (!progression.Nodes.TryGetValue(node.Id, out var progress))
                 continue;
 
-            var canvasNode = new CanvasNode(node.Id, new Point(node.X, node.Y), node.Kind, node.Attribute, node.Title, progress.State, progress.Fraction);
+            var canvasNode = new CanvasNode(
+                node.Id, new Point(node.X, node.Y), node.Kind, node.Attribute, node.Title, progress.State, progress.Fraction,
+                progress.Retention?.Integrity ?? 100, undefended.Contains(node.Id));
             nodes[node.Id] = canvasNode;
             CellOf(canvasNode.Position).Add(node.Id);
 
@@ -292,8 +304,8 @@ public sealed class SkillTreeCanvas : Control
             return;
         }
 
-        var fromMastered = from.State == NodeState.Mastered;
-        var toMastered = to.State == NodeState.Mastered;
+        var fromMastered = from.State.IsMastered();
+        var toMastered = to.State.IsMastered();
         var colorSource = to.Kind == NodeKind.Root ? from : to;
         var pen = fromMastered && toMastered
             ? MasteredEdgePens[colorSource.Attribute]
@@ -325,13 +337,16 @@ public sealed class SkillTreeCanvas : Control
             : node.State switch
             {
                 NodeState.Mastered => (MasteredFills[node.Attribute], node.Kind is NodeKind.Notable or NodeKind.Keystone ? GoldPen : null),
+                NodeState.Fortified => (MasteredFills[node.Attribute], FortifiedPen),
+                NodeState.Engraved => (MasteredFills[node.Attribute], EngravedPen),
+                NodeState.Corrupted => (CorruptedFills[node.Attribute], CorruptedPen),
                 NodeState.Training => (TrainingFills[node.Attribute], AvailablePens[node.Attribute]),
                 NodeState.Available => (LockedFill, AvailablePens[node.Attribute]),
                 _ => ((IBrush)LockedFill, (IPen?)LockedOutline),
             };
 
-        // The training tint is translucent; an opaque base keeps the background out of the node.
-        if (node.State == NodeState.Training)
+        // Translucent tints get an opaque base that keeps the background out of the node.
+        if (node.State is NodeState.Training or NodeState.Corrupted)
             context.DrawEllipse(LockedFill, null, node.Position, node.Radius, node.Radius);
 
         context.DrawEllipse(fill, detailed ? outline : null, node.Position, node.Radius, node.Radius);
@@ -339,8 +354,21 @@ public sealed class SkillTreeCanvas : Control
         if (!detailed)
             return;
 
+        if (node.State == NodeState.Engraved)
+            context.DrawEllipse(null, EngravedInnerPen, node.Position, node.Radius - 4, node.Radius - 4);
+
         if (node.State == NodeState.Training && node.Fraction > 0)
-            context.DrawGeometry(null, ProgressPen, ProgressArc(node));
+            context.DrawGeometry(null, ProgressPen, ProgressArc(node, node.Fraction));
+
+        // Worn-down retention nodes show what is left of their integrity.
+        if (node.State.IsMastered() && node.State != NodeState.Corrupted && node.Integrity < 100)
+            context.DrawGeometry(null, IntegrityPen, ProgressArc(node, node.Integrity / 100.0));
+
+        if (node.UnderAttack)
+        {
+            var marker = node.Position + new Vector(node.Radius * 0.75, -node.Radius * 0.75);
+            context.DrawEllipse(AttackBrush, AttackRim, marker, 5, 5);
+        }
 
         if (node.Id == SelectedNodeId)
             context.DrawEllipse(null, SelectionPen, node.Position, node.Radius + 9, node.Radius + 9);
@@ -352,13 +380,14 @@ public sealed class SkillTreeCanvas : Control
         }
     }
 
-    private Geometry ProgressArc(CanvasNode node)
+    /// <summary>A ring segment around the node, clockwise from the top; one per node, cached.</summary>
+    private Geometry ProgressArc(CanvasNode node, double fraction)
     {
         if (progressArcs.TryGetValue(node.Id, out var cached))
             return cached;
 
         var radius = node.Radius + 5;
-        var sweep = Math.Min(node.Fraction, 0.999) * 2 * Math.PI;
+        var sweep = Math.Clamp(fraction, 0.001, 0.999) * 2 * Math.PI;
         var start = new Point(node.Position.X, node.Position.Y - radius);
         var end = new Point(node.Position.X + radius * Math.Sin(sweep), node.Position.Y - radius * Math.Cos(sweep));
 

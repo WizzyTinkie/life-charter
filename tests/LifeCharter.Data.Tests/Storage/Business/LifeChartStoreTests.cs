@@ -1,6 +1,8 @@
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Business;
 using LifeCharter.Core.SkillTree.Models;
 using LifeCharter.Core.Sync.Business;
@@ -120,5 +122,36 @@ public sealed class LifeChartStoreTests : IAsyncLifetime
         context.Entries.Update(entry);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => context.SaveChangesAsync(Cancellation));
+    }
+
+    [Fact]
+    public async Task Siege_rows_and_recall_ratings_round_trip()
+    {
+        var node = (await store.LoadAsync(Cancellation)).Nodes.First(n => n.Kind != NodeKind.Root);
+        var day = new DateOnly(2026, 11, 18);
+        await store.AddEntryAsync(new LogEntry { NodeId = node.Id, Timestamp = DateTimeOffset.UtcNow, Rating = ReviewRating.Hard }, Cancellation);
+        await store.AddHabitCheckAsync(new HabitCheck { NodeId = node.Id, Timestamp = DateTimeOffset.UtcNow, Automatically = 4, WithoutRemembering = 5, WithoutThinking = 3, BeforeRealizing = 4 }, Cancellation);
+        await store.AddWardUseAsync(new WardUse { Date = day }, Cancellation);
+        await store.SaveVacationAsync(new Vacation { StartDate = day, EndDate = day.AddDays(6) }, Cancellation);
+        await store.SaveSiegeSettingsAsync(new SiegeSettings { RestDays = Weekdays.Saturday | Weekdays.Sunday, StartDate = day }, Cancellation);
+
+        var chart = await store.LoadAsync(Cancellation);
+
+        Assert.Equal(ReviewRating.Hard, Assert.Single(chart.Entries).Rating);
+        Assert.Equal(5, Assert.Single(chart.HabitChecks).WithoutRemembering);
+        Assert.Equal(day, Assert.Single(chart.WardUses).Date);
+        Assert.Equal(day.AddDays(6), Assert.Single(chart.Vacations).EndDate);
+        Assert.Equal(Weekdays.Saturday | Weekdays.Sunday, chart.SiegeSettings?.RestDays);
+        Assert.Equal(SiegeSettings.SingletonId, chart.SiegeSettings?.Id);
+    }
+
+    [Fact]
+    public async Task Siege_settings_stay_a_single_row()
+    {
+        await store.SaveSiegeSettingsAsync(new SiegeSettings { AttacksPerDay = 4 }, Cancellation);
+        await store.SaveSiegeSettingsAsync(new SiegeSettings { AttacksPerDay = 8 }, Cancellation);
+
+        await using var context = factory.CreateDbContext();
+        Assert.Equal(8, Assert.Single(context.SiegeSettings).AttacksPerDay);
     }
 }

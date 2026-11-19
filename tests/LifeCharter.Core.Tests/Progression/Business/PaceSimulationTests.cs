@@ -62,7 +62,7 @@ public sealed class PaceSimulationTests
 
             var character = progression.Character;
             var training = progression.Nodes.Values.Count(p => p.State == NodeState.Training);
-            var mastered = progression.Nodes.Values.Count(p => p.State == NodeState.Mastered) - 1;
+            var mastered = progression.Nodes.Values.Count(p => p.State.IsMastered()) - 1;
             levelOnDay[day] = character.Level.Level;
             masteredOnDay[day] = mastered;
 

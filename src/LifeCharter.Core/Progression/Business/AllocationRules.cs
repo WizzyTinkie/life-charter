@@ -1,5 +1,6 @@
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.SkillTree.Business;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.Core.Progression.Business;
@@ -16,7 +17,7 @@ public static class AllocationRules
             return AllocationBlock.Root;
 
         var state = progression.Nodes[nodeId].State;
-        if (state is NodeState.Training or NodeState.Mastered)
+        if (state.IsAllocated())
             return AllocationBlock.AlreadyAllocated;
 
         if (!data.Goals.Any(goal => goal.NodeId == nodeId && goal.DeletedAt is null))
@@ -29,7 +30,7 @@ public static class AllocationRules
                 edge.Kind == EdgeKind.Requires &&
                 edge.ToNodeId == nodeId &&
                 progression.Nodes.TryGetValue(edge.FromNodeId, out var from) &&
-                from.State != NodeState.Mastered);
+                !from.State.IsMastered());
             return requirementUnmet ? AllocationBlock.RequirementsUnmet : AllocationBlock.NotConnected;
         }
 

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:LifeCharter.App.Widget.ViewModels"
+             xmlns:retention="using:LifeCharter.Core.Retention.Models"
              x:Class="LifeCharter.App.Widget.Views.WidgetContent"
              x:DataType="vm:WidgetViewModel"
              Width="300">
@@ -29,6 +30,38 @@
           <TextBlock Text="Might" FontSize="12" Foreground="#B0B0B0" />
           <ProgressBar Grid.Column="1" Value="{Binding MightShare}" Height="6" MinWidth="0" Foreground="#3E8EF7" VerticalAlignment="Center" />
         </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="4" IsVisible="{Binding ShowSiege}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding SiegeHeader}" FontSize="12" Foreground="#FF9A9D" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="{Binding WardText}" Command="{Binding UseWardCommand}" IsVisible="{Binding CanUseWard}"
+                  FontSize="11" Padding="6,1" ToolTip.Tip="Spend a ward to shield today from all damage" />
+        </Grid>
+        <TextBlock Text="{Binding SiegeNote}" FontSize="11" Foreground="#9AA0AE" IsVisible="{Binding HasSiegeNote}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Defense}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:DefenseItemViewModel">
+              <StackPanel Margin="0,1">
+                <CheckBox Content="{Binding Text}" IsChecked="{Binding IsDefended}" IsEnabled="{Binding !IsDefended}"
+                          Command="{Binding DefendCommand}" IsVisible="{Binding IsTick}" />
+                <StackPanel Spacing="2" IsVisible="{Binding IsRecall}">
+                  <TextBlock Text="{Binding Text}" FontSize="13" Foreground="#E0E0E0" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                  <UniformGrid Columns="4" IsVisible="{Binding CanRecall}">
+                    <Button Content="Again" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Again}"
+                            FontSize="11" Padding="2,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0" />
+                    <Button Content="Hard" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Hard}"
+                            FontSize="11" Padding="2,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0" />
+                    <Button Content="Good" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Good}"
+                            FontSize="11" Padding="2,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0" />
+                    <Button Content="Easy" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Easy}"
+                            FontSize="11" Padding="2,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  </UniformGrid>
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
 
       <TextBlock Text="{Binding TodayHeader}" FontSize="12" Foreground="#B0B0B0" />

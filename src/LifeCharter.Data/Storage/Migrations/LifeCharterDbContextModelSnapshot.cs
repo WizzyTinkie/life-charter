@@ -201,6 +201,10 @@ namespace LifeCharter.Data.Storage.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("quest_id");
 
+                    b.Property<string>("Rating")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("rating");
+
                     b.Property<Guid?>("RetractsEntryId")
                         .HasColumnType("TEXT")
                         .HasColumnName("retracts_entry_id");
@@ -261,6 +265,179 @@ namespace LifeCharter.Data.Storage.Migrations
                     b.HasIndex("NodeId");
 
                     b.ToTable("allocations", (string)null);
+                });
+
+            modelBuilder.Entity("LifeCharter.Core.Retention.Models.HabitCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Automatically")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("automatically");
+
+                    b.Property<int>("BeforeRealizing")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("before_realizing");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("device_id");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("node_id");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("timestamp");
+
+                    b.Property<int>("WithoutRemembering")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("without_remembering");
+
+                    b.Property<int>("WithoutThinking")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("without_thinking");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NodeId");
+
+                    b.ToTable("habit_checks", (string)null);
+                });
+
+            modelBuilder.Entity("LifeCharter.Core.Siege.Models.SiegeSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttacksPerDay")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("attacks_per_day");
+
+                    b.Property<int>("CleanseSessions")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cleanse_sessions");
+
+                    b.Property<double>("DamageMultiplier")
+                        .HasColumnType("REAL")
+                        .HasColumnName("damage_multiplier");
+
+                    b.Property<string>("DeletedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<double>("DesiredRetention")
+                        .HasColumnType("REAL")
+                        .HasColumnName("desired_retention");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("Difficulty")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("difficulty");
+
+                    b.Property<string>("RestDays")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("rest_days");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("WardCap")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("ward_cap");
+
+                    b.Property<string>("ZeroIntegrity")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("zero_integrity");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("siege_settings", (string)null);
+                });
+
+            modelBuilder.Entity("LifeCharter.Core.Siege.Models.Vacation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DeletedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("device_id");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("end_date");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("vacations", (string)null);
+                });
+
+            modelBuilder.Entity("LifeCharter.Core.Siege.Models.WardUse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("device_id");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ward_uses", (string)null);
                 });
 
             modelBuilder.Entity("LifeCharter.Core.SkillTree.Models.SkillEdge", b =>

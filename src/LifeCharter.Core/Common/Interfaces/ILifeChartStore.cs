@@ -2,6 +2,8 @@ using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.Core.Common.Interfaces;
@@ -36,4 +38,14 @@ public interface ILifeChartStore
     Task AddEntryAsync(LogEntry entry, CancellationToken cancellationToken = default);
 
     Task AddAllocationAsync(Allocation allocation, CancellationToken cancellationToken = default);
+
+    Task AddHabitCheckAsync(HabitCheck check, CancellationToken cancellationToken = default);
+
+    Task AddWardUseAsync(WardUse wardUse, CancellationToken cancellationToken = default);
+
+    Task SaveVacationAsync(Vacation vacation, CancellationToken cancellationToken = default);
+
+    Task DeleteVacationAsync(Guid vacationId, CancellationToken cancellationToken = default);
+
+    Task SaveSiegeSettingsAsync(SiegeSettings settings, CancellationToken cancellationToken = default);
 }

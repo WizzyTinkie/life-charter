@@ -3,6 +3,8 @@ using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 using LifeCharter.Core.Sync.Models;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +42,17 @@ public sealed class LifeChartStore(IDbContextFactory<LifeCharterDbContext> conte
         var quests = await context.Quests.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
         var entries = await context.Entries.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
         var allocations = await context.Allocations.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
-        return new LifeChartData(nodes, edges, goals, quests, entries, allocations);
+        var habitChecks = await context.HabitChecks.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var wardUses = await context.WardUses.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var vacations = await context.Vacations.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var siegeSettings = await context.SiegeSettings.AsNoTracking().FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return new LifeChartData(nodes, edges, goals, quests, entries, allocations)
+        {
+            HabitChecks = habitChecks,
+            WardUses = wardUses,
+            Vacations = vacations,
+            SiegeSettings = siegeSettings,
+        };
     }
 
     public Task SaveNodeAsync(SkillNode node, CancellationToken cancellationToken = default) =>
@@ -82,6 +94,21 @@ public sealed class LifeChartStore(IDbContextFactory<LifeCharterDbContext> conte
 
     public Task AddAllocationAsync(Allocation allocation, CancellationToken cancellationToken = default) =>
         InsertAsync(allocation, cancellationToken);
+
+    public Task AddHabitCheckAsync(HabitCheck check, CancellationToken cancellationToken = default) =>
+        InsertAsync(check, cancellationToken);
+
+    public Task AddWardUseAsync(WardUse wardUse, CancellationToken cancellationToken = default) =>
+        InsertAsync(wardUse, cancellationToken);
+
+    public Task SaveVacationAsync(Vacation vacation, CancellationToken cancellationToken = default) =>
+        UpsertAsync(vacation, cancellationToken);
+
+    public Task DeleteVacationAsync(Guid vacationId, CancellationToken cancellationToken = default) =>
+        DeleteAsync<Vacation>(vacationId, cancellationToken);
+
+    public Task SaveSiegeSettingsAsync(SiegeSettings settings, CancellationToken cancellationToken = default) =>
+        UpsertAsync(settings, cancellationToken);
 
     private async Task UpsertAsync<T>(T entity, CancellationToken cancellationToken) where T : MutableEntity
     {

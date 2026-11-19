@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LifeCharter.App.Siege.Business;
+using LifeCharter.App.Siege.ViewModels;
 using LifeCharter.App.SkillTree.Business;
 using LifeCharter.Core.Common.Business;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.App.SkillTree.ViewModels;
@@ -30,6 +33,9 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
             : "";
         CanRefund = session.CanRefund(node.Id);
         IsRoot = node.Kind == NodeKind.Root;
+        Retention = progress.Retention is { } retention ? new RetentionViewModel(session, node, retention) : null;
+        var effect = session.Chart.SiegeSettings?.ZeroIntegrity ?? ZeroIntegrityEffect.Corrupt;
+        stateText = RetentionText.State(progress.State, node.RetentionModel, effect);
 
         var goalsById = session.Chart.Goals.Where(goal => goal.NodeId == node.Id).ToDictionary(goal => goal.Id);
         Goals = new ObservableCollection<GoalItemViewModel>(progress.Goals.Select(goalProgress =>
@@ -43,15 +49,20 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
         Attribute = node.Attribute;
         Kind = node.Kind;
         RetentionModel = node.RetentionModel;
+        Complexity = node.Complexity;
     }
 
     private const int RecentEntryCount = 5;
+
+    private readonly string stateText;
 
     public static IReadOnlyList<LifeAttribute> Attributes { get; } = Enum.GetValues<LifeAttribute>();
 
     public static IReadOnlyList<NodeKind> Kinds { get; } = [NodeKind.Small, NodeKind.Notable, NodeKind.Keystone];
 
     public static IReadOnlyList<RetentionModel> RetentionModels { get; } = Enum.GetValues<RetentionModel>();
+
+    public static IReadOnlyList<Complexity> Complexities { get; } = Enum.GetValues<Complexity>();
 
     public bool IsEditing { get; }
 
@@ -61,7 +72,11 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
 
     public NodeState State { get; }
 
-    public string Subtitle => IsRoot ? "Root" : $"{node.Attribute} · {node.Kind} · {State}";
+    public string Subtitle => IsRoot ? "Root" : $"{node.Attribute} · {node.Kind} · {node.RetentionModel} · {stateText}";
+
+    public RetentionViewModel? Retention { get; }
+
+    public bool HasRetention => Retention is not null;
 
     public bool CanAllocate { get; }
 
@@ -94,6 +109,9 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
     [ObservableProperty]
     public partial RetentionModel RetentionModel { get; set; }
 
+    [ObservableProperty]
+    public partial Complexity Complexity { get; set; }
+
     [RelayCommand]
     private Task AllocateAsync() => session.AllocateAsync(node.Id);
 
@@ -113,6 +131,7 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
         }
 
         node.RetentionModel = RetentionModel;
+        node.Complexity = Complexity;
         return session.SaveNodeAsync(node);
     }
 

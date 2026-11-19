@@ -1,5 +1,6 @@
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Journal.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Business;
 using LifeCharter.Core.Sync.Business;
 using LifeCharter.Data.Storage.Business;
@@ -42,9 +43,13 @@ public sealed class EfSnapshotSyncTests : IAsyncLifetime
     {
         var tables = linux.Schema.ToDictionary(table => table.Name);
 
-        Assert.Equal(["allocations", "edges", "goals", "log_entries", "nodes", "quests"], tables.Keys.Order());
+        Assert.Equal(
+            ["allocations", "edges", "goals", "habit_checks", "log_entries", "nodes", "quests", "siege_settings", "vacations", "ward_uses"],
+            tables.Keys.Order());
         Assert.Equal(SyncKind.AppendOnly, tables["log_entries"].Kind);
+        Assert.Equal(SyncKind.AppendOnly, tables["ward_uses"].Kind);
         Assert.Equal(SyncKind.LastWriterWins, tables["nodes"].Kind);
+        Assert.Equal(SyncKind.LastWriterWins, tables["siege_settings"].Kind);
         Assert.Contains("updated_at", tables["nodes"].Columns);
     }
 
@@ -75,6 +80,25 @@ public sealed class EfSnapshotSyncTests : IAsyncLifetime
         Assert.Single(a.Entries);
         Assert.Equal(a.Nodes.Select(node => node.Id).Order(), b.Nodes.Select(node => node.Id).Order());
         Assert.Equal(a.Goals.Count, b.Goals.Count);
+    }
+
+    [Fact]
+    public async Task Siege_settings_from_both_devices_converge_on_the_last_write()
+    {
+        var day = new DateOnly(2026, 11, 18);
+        await linux.Store.SaveSiegeSettingsAsync(new SiegeSettings { AttacksPerDay = 4, StartDate = day }, Cancellation);
+        await windows.Store.SaveSiegeSettingsAsync(new SiegeSettings { AttacksPerDay = 9, StartDate = day }, Cancellation);
+        await windows.Store.AddWardUseAsync(new WardUse { Date = day }, Cancellation);
+
+        await linux.SyncAsync();
+        await windows.SyncAsync();
+        await linux.SyncAsync();
+
+        var a = await linux.Store.LoadAsync(Cancellation);
+        var b = await windows.Store.LoadAsync(Cancellation);
+        Assert.Equal(9, a.SiegeSettings?.AttacksPerDay);
+        Assert.Equal(9, b.SiegeSettings?.AttacksPerDay);
+        Assert.Single(a.WardUses);
     }
 
     private sealed class Device

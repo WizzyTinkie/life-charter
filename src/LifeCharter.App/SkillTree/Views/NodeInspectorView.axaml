@@ -1,6 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:LifeCharter.App.SkillTree.ViewModels"
+             xmlns:siege="using:LifeCharter.App.Siege.ViewModels"
+             xmlns:retention="using:LifeCharter.Core.Retention.Models"
              x:Class="LifeCharter.App.SkillTree.Views.NodeInspectorView"
              x:DataType="vm:NodeInspectorViewModel">
   <ScrollViewer>
@@ -12,7 +14,7 @@
       <StackPanel Spacing="8" IsVisible="{Binding CanEditNode}">
         <TextBox Text="{Binding Title}" PlaceholderText="Title" />
         <TextBox Text="{Binding Description}" PlaceholderText="Description" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" />
-        <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto">
+        <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto">
           <TextBlock Text="Attribute" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
                     ItemsSource="{x:Static vm:NodeInspectorViewModel.Attributes}" SelectedItem="{Binding Attribute}" />
@@ -22,6 +24,10 @@
           <TextBlock Grid.Row="2" Text="Retention" VerticalAlignment="Center" />
           <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
                     ItemsSource="{x:Static vm:NodeInspectorViewModel.RetentionModels}" SelectedItem="{Binding RetentionModel}" />
+          <TextBlock Grid.Row="3" Text="Complexity" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"
+                    ItemsSource="{x:Static vm:NodeInspectorViewModel.Complexities}" SelectedItem="{Binding Complexity}"
+                    ToolTip.Tip="Habits: simple ones engrave after half the repetitions, complex ones after twice as many" />
         </Grid>
         <Button Content="Save node" Command="{Binding SaveNodeCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
       </StackPanel>
@@ -33,6 +39,60 @@
       </StackPanel>
       <Button Content="Refund point" Command="{Binding RefundCommand}" IsVisible="{Binding CanRefund}"
               HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+
+      <Border Background="#1A1D24" CornerRadius="8" Padding="10" IsVisible="{Binding HasRetention}">
+        <StackPanel Spacing="6" DataContext="{Binding Retention}" x:DataType="siege:RetentionViewModel">
+          <TextBlock Text="Retention" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ModelText}" FontSize="12" Foreground="#9AA0AE" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding AttackText}" FontSize="12" Foreground="#FF7A7E" TextWrapping="Wrap" IsVisible="{Binding IsAttacked}" />
+          <ProgressBar Minimum="0" Maximum="100" Value="{Binding Integrity}" Height="6" MinWidth="0" Foreground="#F5A524" />
+          <TextBlock Text="{Binding IntegrityText}" FontSize="12" Foreground="#C8CCD6" TextWrapping="Wrap" />
+
+          <StackPanel Spacing="4" IsVisible="{Binding ShowProgress}" Margin="0,4,0,0">
+            <TextBlock Text="{Binding ProgressTitle}" FontSize="12" FontWeight="SemiBold" Foreground="#E8C36A" TextWrapping="Wrap" />
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="6" MinWidth="0" Foreground="#E8C36A" />
+            <ItemsControl ItemsSource="{Binding Criteria}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock Text="{Binding}" FontSize="12" Foreground="#9AA0AE" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding EstimateText}" FontSize="12" Foreground="#9AA0AE" FontStyle="Italic" TextWrapping="Wrap"
+                       IsVisible="{Binding HasEstimate}" />
+          </StackPanel>
+
+          <StackPanel Spacing="4" IsVisible="{Binding CanRecall}" Margin="0,4,0,0">
+            <TextBlock Text="Recall first (blank page, explain it aloud), then rate how it went:" FontSize="12" Foreground="#C8CCD6" TextWrapping="Wrap" />
+            <UniformGrid Columns="4">
+              <Button Content="Again" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Again}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" />
+              <Button Content="Hard" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Hard}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" />
+              <Button Content="Good" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Good}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,4,0" />
+              <Button Content="Easy" Command="{Binding RecallCommand}" CommandParameter="{x:Static retention:ReviewRating.Easy}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </UniformGrid>
+          </StackPanel>
+
+          <Border IsVisible="{Binding NeedsSelfCheck}" Margin="0,4,0,0">
+            <StackPanel Spacing="4" DataContext="{Binding SelfCheck}" x:DataType="siege:SelfCheckViewModel">
+              <TextBlock Text="Automaticity self-check" FontSize="12" FontWeight="SemiBold" Foreground="#E8C36A" />
+              <TextBlock Text="{Binding Intro}" FontSize="12" Foreground="#C8CCD6" TextWrapping="Wrap" />
+              <TextBlock Text="I do it automatically." FontSize="12" Foreground="#9AA0AE" />
+              <Slider Minimum="1" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Automatically}" />
+              <TextBlock Text="I do it without having to consciously remember." FontSize="12" Foreground="#9AA0AE" />
+              <Slider Minimum="1" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding WithoutRemembering}" />
+              <TextBlock Text="I do it without thinking." FontSize="12" Foreground="#9AA0AE" />
+              <Slider Minimum="1" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding WithoutThinking}" />
+              <TextBlock Text="I start doing it before I realize I'm doing it." FontSize="12" Foreground="#9AA0AE" />
+              <Slider Minimum="1" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding BeforeRealizing}" />
+              <Button Content="Submit self-check" Command="{Binding SubmitCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
 
       <TextBlock Text="Goals" FontWeight="SemiBold" IsVisible="{Binding HasGoals}" />
       <ItemsControl ItemsSource="{Binding Goals}">

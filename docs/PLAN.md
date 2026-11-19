@@ -79,7 +79,9 @@ LifeCharter.slnx
 src/
   LifeCharter.Core/        pure domain, no UI
     Sync/                    Business/HybridLogicalClock, Models/HlcStamp
-    Retention/  Siege/  Progression/  Goals/        (Phase 1–2)
+    Retention/               Business/MemoryTracker, HabitTracker, CapacityTracker, MotorSkillTracker, RetentionRules
+    Siege/                   Business/SiegeEngine, DifficultyPresets, SiegeRules; Models/SiegeSettings, Attack, SiegeResult
+    Progression/  Goals/  Journal/  SkillTree/  Common/
   LifeCharter.Data/        SQLite
     Sync/                    Business/SnapshotSync, Models/SyncedTable, SyncKind, MergeReport
     Storage/                 (Phase 1: EF Core DbContext, migrations)
@@ -93,10 +95,11 @@ src/
     Logging/                 Business/AppLogging (Serilog), AvaloniaSerilogSink
     SkillTree/               Views/TreeWindow, Controls/SkillTreeCanvas, Business/TreeLayoutGenerator, Models/…
     Widget/                  Views/WidgetWindow, PeekWindow, WidgetContent
+    Siege/                   Views/SiegeSettingsWindow, ViewModels/RetentionViewModel, Business/RetentionText
 spikes/
   LifeCharter.AiSpike/     provider tool-call spike (Phase 0)
 tests/                     mirror the src folders
-  LifeCharter.Core.Tests/  Sync/Business/HybridLogicalClockTests, Retention/Business/FsrsSpikeTests
+  LifeCharter.Core.Tests/  Sync/…, Retention/Business/RetentionTrackerTests, Siege/Business/SiegeEngineTests, FairnessSimulationTests
   LifeCharter.Data.Tests/  Sync/Business/SnapshotSyncTests
 docs/
 ```
@@ -116,10 +119,11 @@ Every synced table has `Id` (UUIDv7), `UpdatedAt` (hybrid logical clock, HLC), `
 | `Goal` | NodeId, Title, Metric (Count, Sum, Milestone), Target, Unit, Window (Total, Daily, Weekly), Periods (how many days/weeks must meet the target), Consecutive (a streak), StartDate, Deadline?, Source (Manual, Template, AI). Duration is a Sum in minutes; a streak is Consecutive. |
 | `Quest` | GoalId?, Title, Schedule (once, daily, weekdays, N× per week, RRULE), Amount, Unit, **Cue** ("When/where…, I will…"), Aliases |
 | `LogEntry` (append-only) | Timestamp, NodeId?, QuestId?, Amount, Unit, Note, Source (Tray, Widget, KRunner, CLI, Chat) |
-| `Review` (append-only) | NodeId, Timestamp, Rating (Again/Hard/Good/Easy) — a recall session on a Memory node |
+| Review | A recall session is a `LogEntry` with a `Rating` (Again/Hard/Good/Easy). It defends and earns XP but never counts towards goals, and undo works like for any entry. |
 | `HabitCheck` (append-only) | NodeId, Timestamp, SRBAI answers (4 × 1–5) |
 | `Allocation` / `WardUse` / `DraftDecision` (append-only) | Game and AI actions |
-| `SyncedSetting` | Key, Value (difficulty, budget, rollover time, timezone, …) |
+| `Vacation` | StartDate, EndDate (both included) |
+| `SiegeSettings` | One row with a fixed id (merges last-writer-wins): difficulty, damage multiplier, attacks per day, rest days, ward cap, effect at 0 integrity, cleanse sessions, desired retention, start date |
 
 **Derived state is never stored as truth:** XP, levels, node states, integrity, siege results and FSRS memory state are recomputed from the append-only tables plus settings (cached locally). Both devices therefore always compute the same result, and nothing gets counted twice after a sync.
 
@@ -132,7 +136,7 @@ Locked → Available → Training → Mastered → Fortified → Engraved
 
 | State | Meaning | Attackable |
 |---|---|---|
-| Training | Allocated with a skill point; goal in progress | Yes (soft) |
+| Training | Allocated with a skill point; goal in progress | No (the goal keeps it going) |
 | Mastered | Goal reached; retention phase begins | Yes |
 | Fortified | About halfway to permanent (section 4) | Rarely |
 | **Engraved** | **Learned permanently (section 4).** Gold rim, immune to attacks. | **No** |
@@ -225,6 +229,30 @@ Simulate a year for these behaviour profiles and check the outcome on Standard:
 - Perfect adherence engraves a Memory node within about 12 months and a standard Habit node within about 3 months.
 
 Siege results are a **pure function** of history + settings + date. Both devices compute identical outcomes, with nothing to sync and nothing resolved twice.
+
+### As built in Phase 2
+
+`SiegeEngine` replays every day from the first practice of a mastered node to today. Each day: (1) choose attacks from the nodes that are due, judged from earlier days only, sorted by threat and cut to the budget, then interleaved across attributes; (2) feed that day's practice to every node's retention tracker; (3) undefended attacks deal damage unless a ward shields the day. Today is never resolved, so the widget shows the morning's attacks with what has been defended so far.
+
+| Rule | Value |
+|---|---|
+| Damage | 20 × severity × difficulty multiplier, halved when Fortified/Seasoned |
+| Severity | Habit: 1 + 0.1 per consecutive miss. Memory and Motor skill: 1 + 10 × (desired retention − predicted recall). Capacity: 0 within 14 days of the last session, then 1 + 0.1 per day. All capped at 2. On Standard, 5 missed days in a row corrupt a habit (20+22+24+26+28). |
+| Healing | Any practice that defends the node restores full integrity, attacked or not |
+| At 0 integrity | Standard and Hardcore: Corrupted, and the node's mastery XP (its "stat bonus") is withheld until cleansed. Casual: dimmed only. Cleanse: 3 practice sessions (Casual 2, Hardcore 6). |
+| Wards | 1 at the start, +1 per 7 fully defended days, capped per preset; a shielded day neither damages nor breaks the streak |
+| When attacks start | The day after mastery. Training nodes are never attacked. |
+| Habit cadence | Due once the interval since the last repetition has passed (daily goal: 1 day; weekly count N: 7/N days); a fortified habit gets one extra day of slack |
+| Capacity dose | About ⅔ of the training frequency (weekly count, or 3 sessions for a weekly sum, or 7 for a daily goal), at least 1; due every ⌊7 / dose⌋ days, so practising when due meets the dose |
+| Day boundary | Local midnight, the same as goals. A 04:00 rollover needs one shared day boundary for goals, XP cap and siege and is left for later. |
+| Hardcore | Corrupts like Standard but needs 6 cleanse sessions, instead of un-allocating the node |
+
+Fairness simulations (`FairnessSimulationTests`, a year on Standard with a Habit, Memory, Capacity and Motor skill node) all pass:
+- 80% adherence (every fifth attack missed): no corruption.
+- 2-week vacation: no corruption, full integrity afterwards, Capacity still reaches Seasoned.
+- 3 sick days with wards: no damage, streak unbroken.
+- Weekends only, rest days Tuesday and Thursday: no corruption.
+- Perfect adherence: the Habit engraves on day 66 (with the self-check), the Memory node on day 311.
 
 ---
 
@@ -453,6 +481,18 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 | (f) Snapshot sync | ✅ 6 tests: offline edits on both devices converge, last writer wins, tombstones propagate, idempotent merge, atomic export |
 | Bug found and fixed | Quitting deadlocked: the pipe listener captured the UI synchronization context while the UI thread blocked on it. Led to the async rules in CODING_GUIDELINES.md. |
 
+### Phase 2 results (2026-11-18, branch `phase2/siege`)
+
+| Deliverable | Result |
+|---|---|
+| Retention models | ✅ Memory (FSRS-6 via `FSRS.Core`, mastery counts as the first learning session), Habit (automaticity curve + SRBAI self-check), Capacity (maintenance dose, 14-day grace, Seasoned), Motor skill (FSRS from 7-day stability, 4 spaced sessions), Milestone (engraved at mastery) |
+| Engrave progress | ✅ Criteria and an estimated date per node in the side panel |
+| Daily siege | ✅ Budget, rest days, difficulty presets, wards, vacation mode, cleanse; see "As built in Phase 2" in section 5 |
+| Storage and sync | ✅ Migration `AddSiege`: `habit_checks`, `ward_uses`, `vacations`, `siege_settings`, `log_entries.rating`. The snapshot sync picks the new tables up from the EF model; two-device test for the settings row. |
+| UI | ✅ Tree: Fortified/Engraved/Corrupted rims, amber integrity ring, red dot for an undefended attack. Side panel: retention, recall buttons, self-check. Widget: today's defense list with one-tap defense, recall ratings and the ward button. Siege settings window (tray menu and tree header). Help sections on siege, retention and difficulty. |
+| Tests | ✅ Core 85, Data 18, Platform 7 |
+| Not in Phase 2 | Bosses (Phase 4), notifications and the morning threat report (Phase 3), a 04:00 rollover |
+
 ---
 
 ## 11. Risks
@@ -472,7 +512,7 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 
 ## 12. Open questions
 
-1. Rollover time: is 04:00 good?
+1. Rollover time: midnight for now (Phase 2). Is 04:00 worth a shared day boundary for goals and siege?
 2. Default difficulty: Standard, or start on Casual for the first month?
 3. UI language: Czech + English, or English only?
 4. Attribute colours and names final (Health/Stamina/Might → green/red/blue)?

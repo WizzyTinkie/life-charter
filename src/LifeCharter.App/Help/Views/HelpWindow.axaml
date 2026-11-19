@@ -11,7 +11,7 @@
     <StackPanel Margin="32,24" Spacing="24" MaxWidth="680">
       <StackPanel Spacing="4">
         <TextBlock Text="LifeCharter Help" FontSize="26" FontWeight="Bold" Foreground="#E8C36A" />
-        <TextBlock Text="How the tree, skill points, XP and goals work." Foreground="#9AA0AE" />
+        <TextBlock Text="How the tree, skill points, XP, goals and the daily siege work." Foreground="#9AA0AE" />
       </StackPanel>
 
       <ItemsControl ItemsSource="{Binding Sections}">

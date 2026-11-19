@@ -3,6 +3,8 @@ using LifeCharter.Core.Common.Interfaces;
 using LifeCharter.Core.Common.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Business;
 using LifeCharter.Core.SkillTree.Models;
 
@@ -127,5 +129,51 @@ public sealed class ChartSessionTests
         await session.ToggleEdgeAsync(edge.ToNodeId, edge.FromNodeId, Cancellation);
 
         await store.Received(1).DeleteEdgeAsync(edge.Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Review_stores_a_rated_recall_entry()
+    {
+        await session.ReloadAsync(Cancellation);
+        var languages = chart.Nodes.Single(node => node.Title == "Languages");
+
+        await session.ReviewAsync(languages.Id, ReviewRating.Hard, EntrySource.Widget, Cancellation);
+
+        await store.Received(1).AddEntryAsync(
+            Arg.Is<LogEntry>(e => e.NodeId == languages.Id && e.Rating == ReviewRating.Hard && e.Timestamp == Now),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Siege_starts_on_standard_today_only_once()
+    {
+        await session.ReloadAsync(Cancellation);
+
+        await session.StartSiegeIfNeededAsync(Cancellation);
+
+        await store.Received(1).SaveSiegeSettingsAsync(
+            Arg.Is<SiegeSettings>(s => s.Difficulty == Difficulty.Standard && s.StartDate == new DateOnly(2026, 11, 17) && s.AttacksPerDay == 6),
+            Arg.Any<CancellationToken>());
+
+        store.LoadAsync(Arg.Any<CancellationToken>()).Returns(chart with { SiegeSettings = new SiegeSettings { StartDate = new DateOnly(2026, 11, 17) } });
+        await session.ReloadAsync(Cancellation);
+        store.ClearReceivedCalls();
+
+        await session.StartSiegeIfNeededAsync(Cancellation);
+        await store.DidNotReceiveWithAnyArgs().SaveSiegeSettingsAsync(default!, Cancellation);
+    }
+
+    [Fact]
+    public async Task Ward_is_only_used_when_one_is_available()
+    {
+        await session.ReloadAsync(Cancellation);
+        Assert.False(await session.UseWardAsync(Cancellation));
+
+        // Tuesday: a siege day, and a fresh siege starts with one ward.
+        store.LoadAsync(Arg.Any<CancellationToken>()).Returns(chart with { SiegeSettings = new SiegeSettings { StartDate = new DateOnly(2026, 11, 17) } });
+        await session.ReloadAsync(Cancellation);
+
+        Assert.True(await session.UseWardAsync(Cancellation));
+        await store.Received(1).AddWardUseAsync(Arg.Is<WardUse>(w => w.Date == new DateOnly(2026, 11, 17)), Arg.Any<CancellationToken>());
     }
 }

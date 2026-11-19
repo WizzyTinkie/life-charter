@@ -1,3 +1,4 @@
+using LifeCharter.Core.Retention.Models;
 using LifeCharter.Core.Sync.Models;
 
 namespace LifeCharter.Core.Journal.Models;
@@ -19,6 +20,12 @@ public sealed class LogEntry : AppendOnlyEntity
     public string Unit { get; set; } = "";
     public string Note { get; set; } = "";
     public EntrySource Source { get; set; } = EntrySource.Manual;
+
+    /// <summary>
+    /// Set on a recall session (a review of a Memory or Motor skill node). Rated entries defend
+    /// and earn XP but do not count towards goals.
+    /// </summary>
+    public ReviewRating? Rating { get; set; }
 
     /// <summary>When set, this entry only cancels the entry with that id.</summary>
     public Guid? RetractsEntryId { get; set; }

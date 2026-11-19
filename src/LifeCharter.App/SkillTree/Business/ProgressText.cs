@@ -43,7 +43,9 @@ public static class ProgressText
         var day = date == today ? "today"
             : date == today.AddDays(-1) ? "yesterday"
             : local.ToString("ddd d MMM", CultureInfo.CurrentCulture);
-        var amount = string.IsNullOrWhiteSpace(entry.Unit) ? $"{entry.Amount:0.##}×" : $"{entry.Amount:0.##} {entry.Unit}";
+        var amount = entry.Rating is { } rating ? $"recall · {rating}"
+            : string.IsNullOrWhiteSpace(entry.Unit) ? $"{entry.Amount:0.##}×"
+            : $"{entry.Amount:0.##} {entry.Unit}";
         var note = string.IsNullOrWhiteSpace(entry.Note) ? "" : $" · {entry.Note}";
         return $"{amount} · {day} {local:HH:mm}{note}";
     }

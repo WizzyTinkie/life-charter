@@ -5,6 +5,9 @@ using LifeCharter.Core.Journal.Business;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Business;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.Retention.Models;
+using LifeCharter.Core.Siege.Business;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.Core.Common.Business;
@@ -74,6 +77,94 @@ public sealed class ChartSession(ILifeChartStore store, TimeProvider timeProvide
             Timestamp = timeProvider.GetUtcNow(),
         };
         await store.AddEntryAsync(entry, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Logs a recall session on a Memory or Motor skill node: recall first, then rate how it went.</summary>
+    public async Task ReviewAsync(Guid nodeId, ReviewRating rating, EntrySource source, CancellationToken cancellationToken = default)
+    {
+        var entry = new LogEntry
+        {
+            NodeId = nodeId,
+            Amount = 1,
+            Unit = "recall",
+            Rating = rating,
+            Source = source,
+            Timestamp = timeProvider.GetUtcNow(),
+        };
+        await store.AddEntryAsync(entry, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task AddHabitCheckAsync(HabitCheck check, CancellationToken cancellationToken = default)
+    {
+        check.Timestamp = timeProvider.GetUtcNow();
+        await store.AddHabitCheckAsync(check, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The vacation covering today, if any.</summary>
+    public Vacation? CurrentVacation =>
+        Chart.Vacations.FirstOrDefault(vacation => vacation.DeletedAt is null && vacation.StartDate <= Today && Today <= vacation.EndDate);
+
+    public bool CanUseWard =>
+        Progression.Siege is { IsStarted: true, Wards: > 0, Today: { Kind: SiegeDayKind.Siege, Shielded: false } };
+
+    /// <summary>Shields today from damage with one ward.</summary>
+    public async Task<bool> UseWardAsync(CancellationToken cancellationToken = default)
+    {
+        if (!CanUseWard)
+            return false;
+
+        await store.AddWardUseAsync(new WardUse { Date = Today }, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Switches the siege on (Standard, starting today) the first time; later calls do nothing.</summary>
+    public async Task StartSiegeIfNeededAsync(CancellationToken cancellationToken = default)
+    {
+        if (Chart.SiegeSettings is not null)
+            return;
+
+        var settings = new SiegeSettings { StartDate = Today };
+        DifficultyPresets.Apply(settings, Difficulty.Standard);
+        await SaveSiegeSettingsAsync(settings, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveSiegeSettingsAsync(SiegeSettings settings, CancellationToken cancellationToken = default)
+    {
+        await store.SaveSiegeSettingsAsync(settings, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Pauses the siege from <paramref name="start"/> to <paramref name="end"/>, both included.</summary>
+    public async Task StartVacationAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
+    {
+        if (end < start)
+            (start, end) = (end, start);
+
+        await store.SaveVacationAsync(new Vacation { StartDate = start, EndDate = end }, cancellationToken).ConfigureAwait(false);
+        await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Ends a vacation now: today is a normal siege day again. A vacation that has not begun is removed.</summary>
+    public async Task EndVacationAsync(Guid vacationId, CancellationToken cancellationToken = default)
+    {
+        var vacation = Chart.Vacations.FirstOrDefault(v => v.Id == vacationId && v.DeletedAt is null);
+        if (vacation is null)
+            return;
+
+        if (vacation.StartDate >= Today)
+        {
+            await store.DeleteVacationAsync(vacation.Id, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            vacation.EndDate = Today.AddDays(-1);
+            await store.SaveVacationAsync(vacation, cancellationToken).ConfigureAwait(false);
+        }
+
         await ReloadAsync(cancellationToken).ConfigureAwait(false);
     }
 

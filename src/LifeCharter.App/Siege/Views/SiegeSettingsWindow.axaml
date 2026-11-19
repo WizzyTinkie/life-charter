@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LifeCharter.App.Siege.ViewModels"
+        x:Class="LifeCharter.App.Siege.Views.SiegeSettingsWindow"
+        x:DataType="vm:SiegeSettingsViewModel"
+        Title="LifeCharter Siege"
+        Width="480" Height="760"
+        Background="#0E0F13">
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="16">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Daily siege" FontSize="24" FontWeight="Bold" Foreground="#E8C36A" />
+        <TextBlock Text="Each day, mastered skills that are starting to fade are attacked. Practise them to defend; undefended attacks wear down their integrity."
+                   TextWrapping="Wrap" Foreground="#9AA0AE" />
+        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" FontSize="12" Foreground="#C8CCD6" />
+      </StackPanel>
+
+      <Border Background="#14161C" CornerRadius="8" Padding="14">
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" >
+          <TextBlock Text="Difficulty" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,3"
+                    ItemsSource="{x:Static vm:SiegeSettingsViewModel.Difficulties}" SelectedItem="{Binding Difficulty}" />
+
+          <TextBlock Grid.Row="1" Text="Attacks per day" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding AttacksPerDay}" Minimum="0" Maximum="30" FormatString="0" Margin="0,3"
+                         ToolTip.Tip="Daily defense budget. Due skills beyond it wait for another day and never take damage." />
+
+          <TextBlock Grid.Row="2" Text="Damage multiplier" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding DamageMultiplier}" Minimum="0" Maximum="3" Increment="0.25" FormatString="0.##" Margin="0,3"
+                         ToolTip.Tip="0 shows attacks without any damage." />
+
+          <TextBlock Grid.Row="3" Text="Ward cap" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding WardCap}" Minimum="0" Maximum="10" FormatString="0" Margin="0,3"
+                         ToolTip.Tip="Most wards you can hold. You earn one for every 7 fully defended days." />
+
+          <TextBlock Grid.Row="4" Text="At 0 integrity" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,3"
+                    ItemsSource="{x:Static vm:SiegeSettingsViewModel.Effects}" SelectedItem="{Binding ZeroIntegrity}"
+                    ToolTip.Tip="Dim: the node fades but keeps its XP. Corrupt: its mastery XP is withheld until cleansed." />
+
+          <TextBlock Grid.Row="5" Text="Cleanse sessions" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding CleanseSessions}" Minimum="1" Maximum="20" FormatString="0" Margin="0,3"
+                         ToolTip.Tip="Practice sessions that restore a corrupted node." />
+
+          <TextBlock Grid.Row="6" Text="Desired recall" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="6" Grid.Column="1" Value="{Binding DesiredRetention}" Minimum="0.75" Maximum="0.97" Increment="0.01" FormatString="0.00" Margin="0,3"
+                         ToolTip.Tip="Memory nodes are attacked when predicted recall drops to this. Higher means more frequent recalls." />
+        </Grid>
+      </Border>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Rest days (no attacks)" FontWeight="SemiBold" />
+        <ItemsControl ItemsSource="{Binding RestDays}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="7" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RestDayViewModel">
+              <ToggleButton Content="{Binding Label}" IsChecked="{Binding IsRest}" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" Margin="0,0,4,0" Padding="2,4" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <Button Classes="accent" Content="Save settings" Command="{Binding SaveCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <TextBlock Text="{Binding SavedText}" FontSize="12" Foreground="#9AA0AE" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Background="#14161C" CornerRadius="8" Padding="14">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Vacation" FontWeight="SemiBold" />
+          <TextBlock Text="Pauses all attacks. Forgetting does not pause, so due recalls come back afterwards, spread over a few days within your budget."
+                     TextWrapping="Wrap" FontSize="12" Foreground="#9AA0AE" />
+          <StackPanel Spacing="6" IsVisible="{Binding HasVacation}">
+            <TextBlock Text="{Binding VacationText}" TextWrapping="Wrap" />
+            <Button Content="{Binding EndVacationText}" Command="{Binding EndVacationCommand}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" IsVisible="{Binding !HasVacation}">
+            <CalendarDatePicker SelectedDate="{Binding VacationStart}" HorizontalAlignment="Stretch" />
+            <NumericUpDown Grid.Column="1" Value="{Binding VacationDays}" Minimum="1" Maximum="90" FormatString="0" Margin="8,0,4,0" Width="110" />
+            <TextBlock Grid.Column="2" Text="days" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <Button Grid.Column="3" Content="Start" Command="{Binding StartVacationCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

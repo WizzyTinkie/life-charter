@@ -1,12 +1,16 @@
 using LifeCharter.App.Help.Models;
 using LifeCharter.Core.Progression.Business;
+using LifeCharter.Core.Retention.Business;
+using LifeCharter.Core.Siege.Business;
+using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
 namespace LifeCharter.App.Help.Business;
 
 /// <summary>
-/// The help text. Every number comes from <see cref="ProgressionRules"/> and
-/// <see cref="LevelCurve"/>, so the help stays right when the rules are tuned.
+/// The help text. Every number comes from the rule classes (<see cref="ProgressionRules"/>,
+/// <see cref="LevelCurve"/>, <see cref="RetentionRules"/>, <see cref="SiegeRules"/>,
+/// <see cref="DifficultyPresets"/>), so the help stays right when the rules are tuned.
 /// </summary>
 public static class HelpContent
 {
@@ -28,7 +32,11 @@ public static class HelpContent
                 "Locked (dark, grey outline): not reachable yet. Master a neighbouring node or its prerequisites first.",
                 "Available (coloured outline): you can allocate it with a skill point.",
                 "Training (tinted, with a gold progress ring): allocated; its goals are in progress.",
-                "Mastered (filled with colour): all goals complete. Its neighbours become available.",
+                "Mastered (filled with colour): all goals complete. Its neighbours become available, and the retention phase begins.",
+                "Fortified (silver rim): about halfway to permanent; takes half damage. Capacity nodes call it Seasoned.",
+                "Engraved (gold rim with an inner ring): learned for good. Never attacked again.",
+                "Corrupted (dim, dashed purple rim): its integrity reached 0. A short cleanse restores it.",
+                "An amber ring around a mastered node shows its remaining integrity; a red dot means it is under attack today and not yet defended.",
                 "The gold node in the centre is you — the root, always mastered.",
             ]),
         new("Skill points",
@@ -50,6 +58,42 @@ public static class HelpContent
                 $"Mastering a node gives a bonus: Small +{ProgressionRules.DefaultXpReward(NodeKind.Small)}, Notable +{ProgressionRules.DefaultXpReward(NodeKind.Notable)}, Keystone +{ProgressionRules.DefaultXpReward(NodeKind.Keystone)} XP.",
                 "The XP needed for the next level grows with each level (100 × level^1.5); see the table below.",
             ]),
+        new("The daily siege",
+            "Each day, mastered skills that you would actually start to forget or lose are attacked. Defending one means doing the practice that prevents the loss.",
+            [
+                "Attacks are chosen in the morning, most dangerous first, and shown on the widget and in the tree (red dot). They do not change during the day.",
+                "Defend a Memory node with a recall: try to recall it first (blank page, explain it aloud), then rate Again, Hard, Good or Easy. Re-reading does not count.",
+                "Defend any other node by doing it: tick it on the widget, or log it in the tree.",
+                $"An attack left undefended at midnight deals about {SiegeRules.BaseDamage:0} damage, more the longer the skill has been neglected (up to ×{RetentionRules.MaxSeverity:0}). Fortified nodes take half. Integrity runs from {SiegeRules.MaxIntegrity} to 0.",
+                "Any practice heals a node back to full integrity, attacked or not.",
+                "At 0 integrity a node is corrupted (on Casual it only fades). Practise it a few times to cleanse it; relearning is faster than learning.",
+                "Only scheduled attacks deal damage. Skills beyond your daily budget, on rest days or on vacation simply wait.",
+                $"Wards: you start with {SiegeRules.StartingWards} and earn one for every {SiegeRules.DaysPerWard} fully defended days. Spend one on the widget to shield a whole day (illness, travel). A shielded day does not break your streak.",
+                "Vacation (Siege settings) pauses all attacks for a few days. Due recalls come back afterwards, spread within your budget.",
+                "Nodes in training are not attacked: their goal keeps them going.",
+            ]),
+        new("When is a skill learned for good?",
+            "Each node has a retention model that matches what kind of skill it is. The model decides when it is attacked and when it becomes Engraved. The side panel shows the progress and an estimated date.",
+            [
+                $"Memory (knowledge): spaced repetition (FSRS) predicts recall. Engraved at a memory stability of {RetentionRules.EngravedStabilityDays:0} days, after at least {RetentionRules.EngravedMinimumReviews} successful recalls spread over {RetentionRules.EngravedMinimumSpanDays / 30} months. Fortified at {RetentionRules.FortifiedStabilityDays:0} days.",
+                $"Habit (lifestyle): becomes automatic with repetitions. Engraved after {RetentionRules.HabitPlateauRepetitions} repetitions (simple habits half, complex ones double) plus an automaticity self-check averaging {RetentionRules.SelfCheckPass:0} of 5. Each missed attack costs one repetition.",
+                $"Capacity (fitness): needs a weekly maintenance dose of about two thirds of your training sessions. No damage for the first {RetentionRules.CapacityGraceDays} days without a session. Never engraved, because fitness never is; Seasoned after {RetentionRules.SeasonedDays / 30} months with the dose in {RetentionRules.SeasonedAdherence:P0} of weeks.",
+                $"Motor skill (technique): fades slowly. Engraved after {RetentionRules.MotorEngravedSessions} practice sessions at least {RetentionRules.MotorSessionSpacingDays} days apart, spread over {RetentionRules.MotorEngravedSpanDays / 7} weeks after mastery.",
+                "Milestone (one-off achievement): engraved the moment it is mastered.",
+                "Change a node's retention model and complexity in Edit tree mode.",
+            ]),
+        new("Difficulty",
+            "Siege settings (tray menu or the Siege button) choose how hard the siege hits. Every knob can also be changed on its own.",
+            [
+                .. DifficultyPresets.All.Select(preset =>
+                    $"{preset.Difficulty}: damage ×{preset.DamageMultiplier:0.##}, up to {preset.AttacksPerDay} attacks a day, rest days {RestDays(preset.RestDays)}, ward cap {preset.WardCap}, " +
+                    (preset.ZeroIntegrity switch
+                    {
+                        ZeroIntegrityEffect.Nothing => "nothing happens at 0 integrity.",
+                        ZeroIntegrityEffect.Dim => $"a node at 0 fades (keeps its XP) until {preset.CleanseSessions} practice sessions.",
+                        _ => $"a node at 0 is corrupted and its mastery XP withheld until {preset.CleanseSessions} practice sessions.",
+                    })),
+            ]),
         new("Goals",
             "A goal is a measurable target on a node. A node is mastered when all of its goals are complete.",
             [
@@ -66,6 +110,7 @@ public static class HelpContent
             [
                 "In the tree: select a node, set the amount on a goal's Log row, optionally add a note, press Log.",
                 "On the desktop widget: tick an item under \"Today\". It logs the usual amount for that goal.",
+                "Recalls of Memory nodes count as practice and earn XP, but not towards goals.",
                 "Made a mistake? Press Undo next to the entry under Recent entries in the side panel, or next to \"Last:\" on the widget.",
                 "Undo does not erase anything: it adds a small entry that cancels the original. That keeps the history honest and makes syncing between your machines safe.",
             ]),
@@ -91,14 +136,15 @@ public static class HelpContent
         new("Coming next",
             "Planned in docs/PLAN.md:",
             [
-                "Daily siege: fading skills are attacked each day; you defend them by practising.",
-                "Retention models: spaced repetition, habit forming and fitness maintenance decide when a skill is learned for good (Engraved).",
                 "Quick entry: type \"run 5\" or a sentence in the widget.",
+                "Notifications with the morning threat report, and bosses: weekly self-tests per attribute.",
                 "Sync between your machines through Syncthing, and an AI coach for goal planning.",
             ]),
     ];
 
     public static IReadOnlyList<LevelRow> Levels { get; } = BuildLevels();
+
+    private static string RestDays(Weekdays days) => days == Weekdays.None ? "none" : days.ToString().ToLowerInvariant();
 
     private static List<LevelRow> BuildLevels()
     {
