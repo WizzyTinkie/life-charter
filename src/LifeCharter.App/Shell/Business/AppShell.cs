@@ -4,6 +4,10 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using LifeCharter.App.Help.Views;
 using LifeCharter.App.Logging.Business;
+using LifeCharter.App.Notifications.Business;
+using LifeCharter.App.QuickEntry.Business;
+using LifeCharter.App.QuickEntry.ViewModels;
+using LifeCharter.App.QuickEntry.Views;
 using LifeCharter.App.Settings.Business;
 using LifeCharter.App.Settings.Models;
 using LifeCharter.App.Shell.Models;
@@ -11,20 +15,28 @@ using LifeCharter.App.Siege.ViewModels;
 using LifeCharter.App.Siege.Views;
 using LifeCharter.App.SkillTree.ViewModels;
 using LifeCharter.App.SkillTree.Views;
+using LifeCharter.App.Sync.Business;
+using LifeCharter.App.Sync.ViewModels;
+using LifeCharter.App.Sync.Views;
 using LifeCharter.App.Widget.ViewModels;
 using LifeCharter.App.Widget.Views;
+using LifeCharter.Core.Journal.Models;
+using LifeCharter.Core.QuickEntry.Models;
 using LifeCharter.Platform.AppInstance.Business;
 using LifeCharter.Platform.Autostart.Business;
 using LifeCharter.Platform.DesktopWidget.Business;
 using LifeCharter.Platform.DesktopWidget.Models;
+using LifeCharter.Platform.Notifications.Business;
+using LifeCharter.Platform.Notifications.Interfaces;
+using LifeCharter.Platform.Shortcuts.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace LifeCharter.App.Shell.Business;
 
 /// <summary>
 /// Owns the long-lived parts of the app: services, tray icon, desktop widget, single-instance
-/// listener. The tree and peek windows are created on demand and dropped when closed, so a
-/// closed window holds no GPU surfaces.
+/// listener, sync, notifications and global shortcuts. Other windows are created on demand and
+/// dropped when closed, so a closed window holds no GPU surfaces.
 /// </summary>
 public sealed class AppShell(Application application, IClassicDesktopStyleApplicationLifetime desktop)
 {
@@ -54,10 +66,18 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
     private TreeWindow? tree;
     private HelpWindow? help;
     private SiegeSettingsWindow? siegeSettings;
+    private QuickEntryWindow? quickEntry;
+    private SyncWindow? syncWindow;
+    private TrayDefenseMenu? defenseMenu;
+    private bool trayAlert;
+    private SyncController? sync;
+    private INotifier? notifier;
+    private ThreatReporter? reporter;
+    private IGlobalShortcuts? shortcuts;
     private SingleInstance? instance;
     private DispatcherTimer? dayTimer;
 
-    public async Task StartAsync(AppCommand initial)
+    public async Task StartAsync(AppRequest initial)
     {
         try
         {
@@ -67,6 +87,11 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
 
             services = await AppServicesFactory.CreateAsync();
             logger.LogInformation("Chart loaded for device {DeviceId}: {Nodes} nodes", services.DeviceId, services.Session.Chart.Nodes.Count);
+
+            defenseMenu = new TrayDefenseMenu(services.Session);
+            tray.Menu?.Items.Insert(3, defenseMenu.Item);
+            services.Session.Changed += (_, _) => Dispatcher.UIThread.Post(RefreshTray);
+            RefreshTray();
 
             // Install the KWin rule before the widget maps, so it starts below other windows.
             await new KWinRuleInstaller(AppLogging.CreateLogger<KWinRuleInstaller>())
@@ -85,12 +110,23 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
             };
             widget.MoveDragStarted += (_, _) => _ = TrackDragAsync();
             widget.PositionChanged += (_, _) => SchedulePositionSave();
+            widget.Opened += (_, _) => _ = RegisterShortcutsAsync();
             widget.Show();
 
             StartDayTimer(services);
             instance = SingleInstance.Listen(OnForwardedCommandAsync, logger);
-            Handle(initial);
+            _ = HandleAsync(initial);
             logger.LogInformation("Shell started (tray, widget, single-instance listener)");
+
+            sync = new SyncController(services);
+            await sync.BackupAsync();
+            await sync.UseFolderAsync(settings.SyncFolder);
+
+            notifier = OperatingSystem.IsLinux()
+                ? new FreedesktopNotifier(AppLogging.CreateLogger<FreedesktopNotifier>())
+                : new LoggingNotifier(AppLogging.CreateLogger<LoggingNotifier>());
+            reporter = new ThreatReporter(services.Session, notifier, ShowPeek, AppLogging.CreateLogger<ThreatReporter>());
+            await reporter.StartAsync();
         }
         catch (Exception ex)
         {
@@ -98,22 +134,40 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         }
     }
 
-    public void Handle(AppCommand command)
+    /// <returns>The reply for the launch that sent the request (printed by the CLI).</returns>
+    public async Task<string> HandleAsync(AppRequest request)
     {
-        switch (command)
+        try
         {
-            case AppCommand.ShowTree:
-                ShowTree();
-                break;
-            case AppCommand.Peek:
-                TogglePeek();
-                break;
-            case AppCommand.Help:
-                ShowHelp();
-                break;
-            case AppCommand.Quit:
-                _ = QuitAsync();
-                break;
+            switch (request.Command)
+            {
+                case AppCommand.ShowTree:
+                    ShowTree();
+                    return "";
+                case AppCommand.Peek:
+                    TogglePeek();
+                    return "";
+                case AppCommand.Help:
+                    ShowHelp();
+                    return "";
+                case AppCommand.Quick:
+                    ShowQuickEntry();
+                    return "";
+                case AppCommand.Log:
+                    return await LogAsync(request.Argument);
+                case AppCommand.Status:
+                    return services is null ? "LifeCharter is still starting." : StatusReport.Build(services.Session);
+                case AppCommand.Quit:
+                    _ = QuitAsync();
+                    return "Quitting LifeCharter.";
+                default:
+                    return "";
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Command {Command} failed", request.Command);
+            return $"Failed: {ex.Message}";
         }
     }
 
@@ -124,15 +178,69 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         await SaveKWinPositionAsync();
         if (instance is not null)
             await instance.DisposeAsync();
+        if (shortcuts is not null)
+            await shortcuts.DisposeAsync();
+        if (notifier is not null)
+            await notifier.DisposeAsync();
+        if (sync is not null)
+            await sync.DisposeAsync();
 
         tray?.Dispose();
         desktop.Shutdown();
     }
 
-    private Task OnForwardedCommandAsync(string wire)
+    private Task<string> OnForwardedCommandAsync(string wire) =>
+        Dispatcher.UIThread.InvokeAsync(() => HandleAsync(AppCommands.FromWire(wire)));
+
+    /// <summary>A quick-entry line from <c>lifecharter log …</c>.</summary>
+    private async Task<string> LogAsync(string text)
     {
-        Dispatcher.UIThread.Post(() => Handle(AppCommands.FromWire(wire)));
-        return Task.CompletedTask;
+        if (services is null)
+            return "LifeCharter is still starting.";
+
+        var session = services.Session;
+        var draft = session.ParseQuickEntry(text);
+        if (draft.Kind == QuickEntryKind.Today)
+            return StatusReport.Build(session);
+        if (!draft.CanApply)
+            return draft.Kind == QuickEntryKind.None ? "Nothing to log. Example: lifecharter log water 2l" : draft.Message;
+
+        var outcome = session.Preview(draft);
+        return await session.ApplyAsync(draft, EntrySource.Cli)
+            ? QuickEntryText.Done(session, draft, outcome)
+            : "Nothing logged today to undo.";
+    }
+
+    private async Task RegisterShortcutsAsync()
+    {
+        if (shortcuts is not null || widget is null || GlobalShortcutSetup.Create(widget) is not { } created)
+            return;
+
+        shortcuts = created;
+        shortcuts.Pressed += (_, id) => Dispatcher.UIThread.Post(() =>
+        {
+            if (id == GlobalShortcutSetup.QuickEntry)
+                ShowQuickEntry();
+            else if (id == GlobalShortcutSetup.Peek)
+                TogglePeek();
+        });
+        await shortcuts.RegisterAsync(GlobalShortcutSetup.Defaults);
+    }
+
+    /// <summary>Today's defenses in the tray, and the red badge while attacks wait in the evening.</summary>
+    private void RefreshTray()
+    {
+        if (tray is null || defenseMenu is null)
+            return;
+
+        defenseMenu.Refresh();
+        var alert = defenseMenu.ShouldAlert(DateTimeOffset.Now);
+        if (alert == trayAlert)
+            return;
+
+        trayAlert = alert;
+        tray.Icon = TrayIconFactory.Create(alert);
+        tray.ToolTipText = alert ? "LifeCharter · attacks still undefended" : "LifeCharter";
     }
 
     /// <summary>Progression depends on the date; recompute once the day changes.</summary>
@@ -141,17 +249,23 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         var lastDay = appServices.Session.Today;
         dayTimer = new DispatcherTimer(DayCheckInterval, DispatcherPriority.Background, async (_, _) =>
         {
-            if (appServices.Session.Today == lastDay)
-                return;
-
-            lastDay = appServices.Session.Today;
             try
             {
-                await appServices.Session.ReloadAsync();
+                RefreshTray();
+                if (appServices.Session.Today != lastDay)
+                {
+                    lastDay = appServices.Session.Today;
+                    await appServices.Session.ReloadAsync();
+                    if (sync is not null)
+                        await sync.BackupAsync();
+                }
+
+                if (reporter is not null)
+                    await reporter.CheckAsync();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Day rollover reload failed");
+                logger.LogError(ex, "Periodic check failed");
             }
         });
         dayTimer.Start();
@@ -161,6 +275,8 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
     {
         var openTree = new NativeMenuItem("Open tree");
         openTree.Click += (_, _) => ShowTree();
+        var quick = new NativeMenuItem("Quick entry…");
+        quick.Click += (_, _) => ShowQuickEntry();
         var peekWidget = new NativeMenuItem("Peek widget");
         peekWidget.Click += (_, _) => TogglePeek();
         var position = new NativeMenuItem("Widget position") { Menu = CreateCornerMenu() };
@@ -173,6 +289,8 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         autostart.Click += (_, _) => _ = ToggleAutostartAsync(autostart);
         var siegeItem = new NativeMenuItem("Siege settings…");
         siegeItem.Click += (_, _) => ShowSiegeSettings();
+        var syncItem = new NativeMenuItem("Sync…");
+        syncItem.Click += (_, _) => ShowSync();
         var helpItem = new NativeMenuItem("Help");
         helpItem.Click += (_, _) => ShowHelp();
         var quit = new NativeMenuItem("Quit");
@@ -182,7 +300,8 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         {
             Icon = TrayIconFactory.Create(),
             ToolTipText = "LifeCharter",
-            Menu = [openTree, peekWidget, siegeItem, position, autostart, helpItem, new NativeMenuItemSeparator(), quit],
+            // Today's defenses is inserted at index 3 once the chart is loaded.
+            Menu = [openTree, quick, peekWidget, siegeItem, syncItem, position, autostart, helpItem, new NativeMenuItemSeparator(), quit],
         };
         icon.Clicked += (_, _) => ShowTree();
         return icon;
@@ -433,6 +552,63 @@ public sealed class AppShell(Application application, IClassicDesktopStyleApplic
         }
 
         siegeSettings.Activate();
+    }
+
+    private void ShowQuickEntry()
+    {
+        if (services is null)
+            return;
+
+        if (quickEntry is null)
+        {
+            quickEntry = new QuickEntryWindow(new QuickEntryViewModel(services.Session, EntrySource.QuickEntry, ShowPeek));
+            quickEntry.Closed += (_, _) =>
+            {
+                quickEntry = null;
+                logger.LogDebug("Quick entry closed");
+            };
+            quickEntry.Activated += (_, _) => logger.LogDebug("Quick entry activated");
+            quickEntry.Deactivated += (_, _) => logger.LogDebug("Quick entry deactivated");
+            quickEntry.Show();
+            logger.LogDebug("Quick entry shown");
+        }
+
+        quickEntry.Activate();
+    }
+
+    private void ShowSync()
+    {
+        if (sync is null)
+            return;
+
+        if (syncWindow is null)
+        {
+            syncWindow = new SyncWindow(new SyncViewModel(sync, settings.SyncFolder, UseSyncFolderAsync));
+            syncWindow.Closed += (_, _) => syncWindow = null;
+            syncWindow.Show();
+        }
+
+        syncWindow.Activate();
+    }
+
+    private async Task UseSyncFolderAsync(string? folder)
+    {
+        if (sync is null)
+            return;
+
+        settings = settings with { SyncFolder = folder };
+        await SettingsStore.SaveAsync(settings);
+        await sync.UseFolderAsync(folder);
+        logger.LogInformation("Sync folder set to {Folder}", folder ?? "(off)");
+    }
+
+    /// <summary>Opens the peek overlay, or keeps it open.</summary>
+    private void ShowPeek()
+    {
+        if (peek is null)
+            TogglePeek();
+        else
+            peek.Activate();
     }
 
     private void TogglePeek()

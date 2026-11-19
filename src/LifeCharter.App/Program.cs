@@ -14,19 +14,26 @@ internal static class Program
     public static int Main(string[] args)
     {
         AppLogging.Initialize();
-        var command = AppCommands.Parse(args);
+        var request = AppCommands.Parse(args);
+        if (args.Length > 0 && args[0] is "-h" or "--usage" or "/?")
+        {
+            Console.WriteLine(AppCommands.Usage);
+            return 0;
+        }
 
         try
         {
             // A plain second launch opens the tree in the running instance.
-            var forwarded = command == AppCommand.Start ? AppCommand.ShowTree : command;
-            if (SingleInstance.TryForward(AppCommands.ToWire(forwarded)))
+            var forwarded = request.Command == AppCommand.Start ? request with { Command = AppCommand.ShowTree } : request;
+            if (SingleInstance.TryForward(AppCommands.ToWire(forwarded), out var reply))
             {
-                Log.Information("Forwarded {Command} to the running instance", forwarded);
+                Log.Information("Forwarded {Command} to the running instance", forwarded.Command);
+                if (reply.Length > 0)
+                    Console.WriteLine(reply);
                 return 0;
             }
 
-            Log.Information("LifeCharter starting with {Command}; logs in {LogDirectory}", command, AppLogging.LogDirectory);
+            Log.Information("LifeCharter starting with {Command}; logs in {LogDirectory}", request.Command, AppLogging.LogDirectory);
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             return 0;
         }

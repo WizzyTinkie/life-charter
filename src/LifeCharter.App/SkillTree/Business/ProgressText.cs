@@ -49,8 +49,4 @@ public static class ProgressText
         var note = string.IsNullOrWhiteSpace(entry.Note) ? "" : $" · {entry.Note}";
         return $"{amount} · {day} {local:HH:mm}{note}";
     }
-
-    /// <summary>A sensible amount to pre-fill when logging towards a goal.</summary>
-    public static double DefaultAmount(Goal goal) =>
-        goal.Metric == GoalMetric.Sum && goal.Window == GoalWindow.Daily ? goal.Target : 1;
 }

@@ -5,6 +5,8 @@ using LifeCharter.Core.Journal.Business;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Business;
 using LifeCharter.Core.Progression.Models;
+using LifeCharter.Core.QuickEntry.Business;
+using LifeCharter.Core.QuickEntry.Models;
 using LifeCharter.Core.Retention.Models;
 using LifeCharter.Core.Siege.Business;
 using LifeCharter.Core.Siege.Models;
@@ -166,6 +168,31 @@ public sealed class ChartSession(ILifeChartStore store, TimeProvider timeProvide
         }
 
         await ReloadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public QuickEntryDraft ParseQuickEntry(string text) => QuickEntryParser.Parse(text, Chart, Progression);
+
+    public QuickEntryOutcome Preview(QuickEntryDraft draft) =>
+        QuickEntryPreview.Evaluate(Chart, Progression, draft, timeProvider.GetUtcNow(), Today, Zone);
+
+    /// <summary>Today's most recent entry that still counts, the one quick-entry "/undo" cancels.</summary>
+    public LogEntry? LastEntryToday =>
+        RecentEntries(null, 1).FirstOrDefault(entry => GoalProgressCalculator.LocalDate(entry.Timestamp, Zone) == Today);
+
+    /// <summary>Applies a Log, Recall or Undo draft. Returns false when there was nothing to apply.</summary>
+    public async Task<bool> ApplyAsync(QuickEntryDraft draft, EntrySource source, CancellationToken cancellationToken = default)
+    {
+        switch (draft.Kind)
+        {
+            case QuickEntryKind.Log or QuickEntryKind.Recall when draft.NodeId is not null:
+                await store.AddEntryAsync(QuickEntryPreview.ToEntry(draft, timeProvider.GetUtcNow(), source), cancellationToken).ConfigureAwait(false);
+                await ReloadAsync(cancellationToken).ConfigureAwait(false);
+                return true;
+            case QuickEntryKind.Undo when LastEntryToday is { } last:
+                return await UndoEntryAsync(last.Id, cancellationToken).ConfigureAwait(false);
+            default:
+                return false;
+        }
     }
 
     /// <summary>Entries that still count, newest first; optionally only those of one node.</summary>

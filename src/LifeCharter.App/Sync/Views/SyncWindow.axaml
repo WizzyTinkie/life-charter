@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LifeCharter.App.Sync.ViewModels"
+        x:Class="LifeCharter.App.Sync.Views.SyncWindow"
+        x:DataType="vm:SyncViewModel"
+        Title="LifeCharter Sync"
+        Width="560" SizeToContent="Height"
+        Background="#0E0F13">
+  <StackPanel Margin="24" Spacing="14">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Sync between machines" FontSize="24" FontWeight="Bold" Foreground="#E8C36A" />
+      <TextBlock TextWrapping="Wrap" Foreground="#9AA0AE"
+                 Text="LifeCharter never shares its live database. Each machine writes its own snapshot into a folder that Syncthing shares, and merges the others' snapshots row by row, so edits made on both machines all survive." />
+    </StackPanel>
+
+    <StackPanel Spacing="6">
+      <TextBlock Text="Syncthing folder" FontWeight="SemiBold" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Text="{Binding Folder}" />
+        <Button x:Name="Browse" Grid.Column="1" Content="Browse…" Margin="8,0,0,0" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Use this folder" Command="{Binding SaveCommand}" />
+        <Button Content="Sync now" Command="{Binding SyncNowCommand}" IsVisible="{Binding IsOn}" />
+        <Button Content="Turn off" Command="{Binding TurnOffCommand}" IsVisible="{Binding IsOn}" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border Background="#14161C" CornerRadius="8" Padding="12">
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding DevicesText}" TextWrapping="Wrap" FontSize="12" Foreground="#9AA0AE" />
+        <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" FontSize="12" Foreground="#FF7A7E" IsVisible="{Binding HasError}" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#9AA0AE"
+               Text="Setup: install Syncthing on both machines (on Linux: systemctl --user enable --now syncthing), pair them, share one folder, then pick that folder here on each machine. A daily backup of the last 14 days is kept either way." />
+  </StackPanel>
+</Window>

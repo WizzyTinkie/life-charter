@@ -2,10 +2,13 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LifeCharter.App.QuickEntry.ViewModels;
 using LifeCharter.App.Siege.Business;
 using LifeCharter.App.SkillTree.Business;
 using LifeCharter.Core.Common.Business;
+using LifeCharter.Core.Goals.Business;
 using LifeCharter.Core.Goals.Models;
+using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Siege.Models;
 using LifeCharter.Core.SkillTree.Models;
 
@@ -23,11 +26,14 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     {
         this.session = session;
         this.openTree = openTree;
+        QuickEntry = new QuickEntryViewModel(session, EntrySource.Widget, () => { });
         session.Changed += OnSessionChanged;
         Refresh();
     }
 
     public ObservableCollection<TodayItemViewModel> Today { get; } = [];
+
+    public QuickEntryViewModel QuickEntry { get; }
 
     public ObservableCollection<DefenseItemViewModel> Defense { get; } = [];
 
@@ -111,7 +117,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         foreach (var item in open.Take(MaxTodayItems))
         {
             var text = $"{nodes[item.NodeId].Title} · {ProgressText.Goal(item.Goal, item.Progress)}";
-            Today.Add(new TodayItemViewModel(session, item.NodeId, item.Goal.Id, text, ProgressText.DefaultAmount(item.Goal), item.Goal.Unit));
+            Today.Add(new TodayItemViewModel(session, item.NodeId, item.Goal.Id, text, GoalDefaults.Amount(item.Goal), item.Goal.Unit));
         }
 
         // Offer undo for today's most recent entry.

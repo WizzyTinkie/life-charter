@@ -71,6 +71,7 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
 
         var merged = new List<string>();
         HlcStamp? maxStamp = null;
+        var rowsChanged = 0;
 
         if (!Directory.Exists(DevicesFolder))
             return new MergeReport(merged, maxStamp);
@@ -92,9 +93,10 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
             await CopyFileAsync(path, copy, cancellationToken).ConfigureAwait(false);
             try
             {
-                var stamp = await MergeOneAsync(local, copy, cancellationToken).ConfigureAwait(false);
-                if (stamp is { } s && (maxStamp is null || s > maxStamp.Value))
+                var outcome = await MergeOneAsync(local, copy, cancellationToken).ConfigureAwait(false);
+                if (outcome.MaxStamp is { } s && (maxStamp is null || s > maxStamp.Value))
                     maxStamp = s;
+                rowsChanged += outcome.RowsChanged;
                 await WriteFingerprintAsync(local, remoteDevice, fingerprint, cancellationToken).ConfigureAwait(false);
                 merged.Add(remoteDevice);
             }
@@ -104,7 +106,7 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
             }
         }
 
-        return new MergeReport(merged, maxStamp);
+        return new MergeReport(merged, maxStamp, rowsChanged);
     }
 
     internal static string BuildMergeSql(SyncedTable table)
@@ -127,7 +129,7 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
             """;
     }
 
-    private async Task<HlcStamp?> MergeOneAsync(SqliteConnection local, string snapshotPath, CancellationToken cancellationToken)
+    private async Task<MergeOutcome> MergeOneAsync(SqliteConnection local, string snapshotPath, CancellationToken cancellationToken)
     {
         await using (var attach = local.CreateCommand())
         {
@@ -140,6 +142,7 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
         {
             HlcStamp? maxStamp = null;
             await using var tx = (SqliteTransaction)await local.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            var changesBefore = await TotalChangesAsync(local, tx, cancellationToken).ConfigureAwait(false);
 
             foreach (var table in tables)
             {
@@ -159,14 +162,24 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
                 }
             }
 
+            // Ignored inserts and skipped updates are not counted, so this is the number of rows that really changed.
+            var changed = await TotalChangesAsync(local, tx, cancellationToken).ConfigureAwait(false) - changesBefore;
             await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return maxStamp;
+            return new MergeOutcome(maxStamp, (int)changed);
         }
         finally
         {
             // Not cancellable: the attachment must be released even when the merge was cancelled.
             await ExecuteAsync(local, $"DETACH DATABASE {RemoteAlias}", null, CancellationToken.None).ConfigureAwait(false);
         }
+    }
+
+    private static async Task<long> TotalChangesAsync(SqliteConnection local, SqliteTransaction tx, CancellationToken cancellationToken)
+    {
+        await using var cmd = local.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT total_changes()";
+        return (long)(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) ?? 0L);
     }
 
     /// <summary>Column names of the remote table; empty when the remote snapshot has no such table.</summary>
@@ -254,4 +267,6 @@ public sealed class SnapshotSync(string syncFolder, string deviceId, IReadOnlyLi
 
     /// <summary>Size and modification time of a remote snapshot when it was last merged.</summary>
     private readonly record struct SnapshotFingerprint(long Length, long MtimeTicks);
+
+    private readonly record struct MergeOutcome(HlcStamp? MaxStamp, int RowsChanged);
 }

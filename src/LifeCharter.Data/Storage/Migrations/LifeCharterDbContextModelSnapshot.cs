@@ -490,6 +490,11 @@ namespace LifeCharter.Data.Storage.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("Aliases")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("aliases");
+
                     b.Property<string>("Attribute")
                         .IsRequired()
                         .HasColumnType("TEXT")

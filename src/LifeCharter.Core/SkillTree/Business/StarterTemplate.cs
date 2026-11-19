@@ -16,22 +16,22 @@ public static class StarterTemplate
 
     private static readonly Category[] Categories =
     [
-        new(LifeAttribute.Health, "Sleep", RetentionModel.Habit, GoalMetric.Sum, 7, "h", GoalWindow.Daily, 14),
-        new(LifeAttribute.Health, "Hydration", RetentionModel.Habit, GoalMetric.Sum, 2, "l", GoalWindow.Daily, 14),
-        new(LifeAttribute.Health, "Nutrition", RetentionModel.Habit, GoalMetric.Count, 1, "healthy meal", GoalWindow.Daily, 14),
-        new(LifeAttribute.Health, "Mind", RetentionModel.Habit, GoalMetric.Sum, 10, "min", GoalWindow.Daily, 14),
-        new(LifeAttribute.Health, "Screen time", RetentionModel.Habit, GoalMetric.Count, 1, "screen-free evening", GoalWindow.Daily, 14),
-        new(LifeAttribute.Health, "Social", RetentionModel.Habit, GoalMetric.Count, 1, "meetup", GoalWindow.Weekly, 4),
-        new(LifeAttribute.Stamina, "Cardio", RetentionModel.Capacity, GoalMetric.Sum, 60, "min", GoalWindow.Weekly, 4),
-        new(LifeAttribute.Stamina, "Strength", RetentionModel.Capacity, GoalMetric.Count, 2, "session", GoalWindow.Weekly, 4),
-        new(LifeAttribute.Stamina, "Mobility", RetentionModel.Habit, GoalMetric.Sum, 10, "min", GoalWindow.Daily, 14),
-        new(LifeAttribute.Stamina, "Steps", RetentionModel.Habit, GoalMetric.Sum, 8000, "steps", GoalWindow.Daily, 14),
-        new(LifeAttribute.Stamina, "Sport", RetentionModel.MotorSkill, GoalMetric.Count, 1, "session", GoalWindow.Weekly, 4),
-        new(LifeAttribute.Might, "Languages", RetentionModel.Memory, GoalMetric.Sum, 15, "min", GoalWindow.Daily, 14),
-        new(LifeAttribute.Might, "Programming", RetentionModel.Memory, GoalMetric.Sum, 3, "h", GoalWindow.Weekly, 4),
-        new(LifeAttribute.Might, "Reading", RetentionModel.Memory, GoalMetric.Sum, 100, "pages", GoalWindow.Total, 1),
-        new(LifeAttribute.Might, "Courses", RetentionModel.Memory, GoalMetric.Milestone, 1, "", GoalWindow.Total, 1),
-        new(LifeAttribute.Might, "Creative", RetentionModel.MotorSkill, GoalMetric.Count, 2, "session", GoalWindow.Weekly, 4),
+        new(LifeAttribute.Health, "Sleep", RetentionModel.Habit, GoalMetric.Sum, 7, "h", GoalWindow.Daily, 14, "slept, bed, nap"),
+        new(LifeAttribute.Health, "Hydration", RetentionModel.Habit, GoalMetric.Sum, 2, "l", GoalWindow.Daily, 14, "water, drink"),
+        new(LifeAttribute.Health, "Nutrition", RetentionModel.Habit, GoalMetric.Count, 1, "healthy meal", GoalWindow.Daily, 14, "meal, food, ate"),
+        new(LifeAttribute.Health, "Mind", RetentionModel.Habit, GoalMetric.Sum, 10, "min", GoalWindow.Daily, 14, "meditate, meditation, journal"),
+        new(LifeAttribute.Health, "Screen time", RetentionModel.Habit, GoalMetric.Count, 1, "screen-free evening", GoalWindow.Daily, 14, "screen, offline"),
+        new(LifeAttribute.Health, "Social", RetentionModel.Habit, GoalMetric.Count, 1, "meetup", GoalWindow.Weekly, 4, "friends, meetup, family"),
+        new(LifeAttribute.Stamina, "Cardio", RetentionModel.Capacity, GoalMetric.Sum, 60, "min", GoalWindow.Weekly, 4, "run, running, jog, bike, cycling, swim"),
+        new(LifeAttribute.Stamina, "Strength", RetentionModel.Capacity, GoalMetric.Count, 2, "session", GoalWindow.Weekly, 4, "gym, lift, workout, pushups"),
+        new(LifeAttribute.Stamina, "Mobility", RetentionModel.Habit, GoalMetric.Sum, 10, "min", GoalWindow.Daily, 14, "stretch, stretching, yoga"),
+        new(LifeAttribute.Stamina, "Steps", RetentionModel.Habit, GoalMetric.Sum, 8000, "steps", GoalWindow.Daily, 14, "walk, walking"),
+        new(LifeAttribute.Stamina, "Sport", RetentionModel.MotorSkill, GoalMetric.Count, 1, "session", GoalWindow.Weekly, 4, "football, tennis, climbing"),
+        new(LifeAttribute.Might, "Languages", RetentionModel.Memory, GoalMetric.Sum, 15, "min", GoalWindow.Daily, 14, "language, vocab, vocabulary"),
+        new(LifeAttribute.Might, "Programming", RetentionModel.Memory, GoalMetric.Sum, 3, "h", GoalWindow.Weekly, 4, "code, coding"),
+        new(LifeAttribute.Might, "Reading", RetentionModel.Memory, GoalMetric.Sum, 100, "pages", GoalWindow.Total, 1, "read, book"),
+        new(LifeAttribute.Might, "Courses", RetentionModel.Memory, GoalMetric.Milestone, 1, "", GoalWindow.Total, 1, "course, lesson, class"),
+        new(LifeAttribute.Might, "Creative", RetentionModel.MotorSkill, GoalMetric.Count, 2, "session", GoalWindow.Weekly, 4, "draw, drawing, music, guitar, writing"),
     ];
 
     /// <summary>Sector centre per attribute, in degrees (screen coordinates, y down).</summary>
@@ -73,6 +73,7 @@ public static class StarterTemplate
                     X = Math.Round(Math.Cos(angle) * Radius, 1),
                     Y = Math.Round(Math.Sin(angle) * Radius, 1),
                     RetentionModel = category.Model,
+                    Aliases = category.Aliases,
                     XpReward = ProgressionRules.DefaultXpReward(NodeKind.Small),
                 };
                 nodes.Add(node);
@@ -114,5 +115,6 @@ public static class StarterTemplate
         double Target,
         string Unit,
         GoalWindow Window,
-        int Periods);
+        int Periods,
+        string Aliases);
 }

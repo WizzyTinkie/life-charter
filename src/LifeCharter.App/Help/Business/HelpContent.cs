@@ -1,4 +1,6 @@
 using LifeCharter.App.Help.Models;
+using LifeCharter.App.Notifications.Business;
+using LifeCharter.App.Shell.Business;
 using LifeCharter.Core.Progression.Business;
 using LifeCharter.Core.Retention.Business;
 using LifeCharter.Core.Siege.Business;
@@ -114,13 +116,24 @@ public static class HelpContent
                 "Made a mistake? Press Undo next to the entry under Recent entries in the side panel, or next to \"Last:\" on the widget.",
                 "Undo does not erase anything: it adds a small entry that cancels the original. That keeps the history honest and makes syncing between your machines safe.",
             ]),
+        new("Quick entry",
+            "Type what you did in one line; the preview shows what Enter will do before anything is saved.",
+            [
+                $"Where: the box at the bottom of the widget, the popup ({GlobalShortcutSetup.Defaults[0]}, or Quick entry in the tray menu), or a terminal: lifecharter log water 2l.",
+                "A number with a unit and the name of the skill, in any order: water 2l, run 30 min, read 30 pages, 2,5 l water.",
+                "Hours and minutes convert (run 1.5 h logs 90 min on a minutes goal); without a number you log the goal's usual amount.",
+                "Skills match by title or alias, ignoring case and accents: \"cestina\" finds \"Čeština\". Add aliases to a node in Edit tree mode (run, jog, bike…).",
+                "Add again, hard, good or easy to recall a Memory node: vocab good. That defends it.",
+                "Text after a colon is the note: gym: legs day.",
+                "Commands: /undo cancels today's last entry, /today shows the widget, /defend gym, /log … The AI coach (/plan, /goal) comes later.",
+            ]),
         new("Editing the tree",
             "Press \"Edit tree\" in the header to change the tree itself.",
             [
                 "Drag a node to move it.",
                 "Shift-drag from one node to another to connect them; do it again to disconnect them.",
                 "Double-click empty space to add a node. Its attribute follows the sector you clicked in, and it connects to the selected node (or the nearest one).",
-                "Use the side panel to rename a node, change its attribute, kind or retention model, and to add, change or delete goals.",
+                "Use the side panel to rename a node, set its quick-entry aliases, change its attribute, kind or retention model, and to add, change or delete goals.",
                 "Delete node removes the node with its connections and goals. The root cannot be deleted.",
             ]),
         new("Desktop widget, tray and shortcuts",
@@ -128,17 +141,35 @@ public static class HelpContent
             [
                 "The widget sits under all windows. Show the desktop (Meta+D on KDE, Win+D on Windows) to see it.",
                 "Drag the widget by its title row to put it anywhere; LifeCharter remembers the spot. Tray menu → Widget position snaps it back to a corner.",
-                "Peek shows the widget on top of everything: tray menu → Peek widget, or run lifecharter peek. Esc or a click elsewhere hides it.",
+                $"Peek shows the widget on top of everything: {GlobalShortcutSetup.Defaults[1]}, tray menu → Peek widget, or lifecharter peek. Esc or a click elsewhere hides it.",
+                $"Shortcuts: {GlobalShortcutSetup.Defaults[0]} quick entry, {GlobalShortcutSetup.Defaults[1]} peek. On KDE change them in System Settings → Shortcuts → LifeCharter.",
+                $"The tray menu lists today's defenses: click one to defend it (Memory nodes ask how the recall went). From {TrayDefenseMenu.AlertHour}:00 the tray icon gets a red badge while attacks wait.",
                 "Clicking the tray icon opens the tree. Closing the tree keeps LifeCharter running in the tray; use Quit in the tray menu to exit.",
                 "Tick Start on login in the tray menu to have LifeCharter start with your desktop.",
-                "Commands: lifecharter tree, lifecharter peek, lifecharter help, lifecharter quit. Bind them to keyboard shortcuts in your desktop settings.",
+                "Terminal: lifecharter tree | peek | quick | log <text> | status | help | quit. lifecharter --usage lists them.",
+            ]),
+        new("Notifications",
+            "Two reminders a day at most, and only on siege days with attacks.",
+            [
+                $"From {ThreatReporter.MorningHour}:00: the morning threat report lists today's attacks.",
+                $"From {ThreatReporter.EveningHour}:00: a reminder if attacks that deal damage are still undefended. \"In 1 hour\" snoozes it.",
+                "Clicking a notification opens the widget on top, ready to defend.",
+                "Each one is shown once a day on each machine, even if you restart LifeCharter.",
+            ]),
+        new("Sync between machines",
+            "Use LifeCharter on your desktop and your laptop or Windows machine, through Syncthing.",
+            [
+                "Tray menu → Sync…: pick a folder that Syncthing shares between your machines, on each machine.",
+                "Each machine writes only its own snapshot (devices/<machine>.db) and merges the others' row by row, so edits made on both machines while apart all survive.",
+                "Snapshots are written half a minute after a change and when you quit; other machines' snapshots are merged as soon as Syncthing delivers them.",
+                "Window positions, the sync folder and API keys stay on each machine.",
+                "Either way, a daily backup of the last 14 days is kept next to the database (backups folder).",
             ]),
         new("Coming next",
             "Planned in docs/PLAN.md:",
             [
-                "Quick entry: type \"run 5\" or a sentence in the widget.",
-                "Notifications with the morning threat report, and bosses: weekly self-tests per attribute.",
-                "Sync between your machines through Syncthing, and an AI coach for goal planning.",
+                "An AI coach for goal planning and quick entry in plain sentences, in Czech too.",
+                "Bosses: weekly self-tests per attribute, and KRunner integration.",
             ]),
     ];
 

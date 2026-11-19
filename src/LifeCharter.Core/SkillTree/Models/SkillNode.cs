@@ -9,6 +9,9 @@ public sealed class SkillNode : MutableEntity
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
 
+    /// <summary>Comma-separated words the quick-entry parser maps to this node ("water, drink").</summary>
+    public string Aliases { get; set; } = "";
+
     /// <summary>World position on the radial tree canvas.</summary>
     public double X { get; set; }
 

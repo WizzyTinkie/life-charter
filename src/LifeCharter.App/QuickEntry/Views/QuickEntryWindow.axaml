@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LifeCharter.App.QuickEntry.ViewModels"
+        x:Class="LifeCharter.App.QuickEntry.Views.QuickEntryWindow"
+        x:DataType="vm:QuickEntryViewModel"
+        Title="LifeCharter Quick entry"
+        Width="600"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border CornerRadius="14" Background="#F2181A20" BorderBrush="#44FFFFFF" BorderThickness="1" Padding="14">
+    <StackPanel Spacing="8">
+      <TextBox x:Name="Input" Text="{Binding Text}" FontSize="18" PlaceholderText="What did you do?">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding SubmitCommand}" />
+        </TextBox.KeyBindings>
+      </TextBox>
+      <TextBlock Text="{Binding Preview}" FontSize="13" TextWrapping="Wrap" Foreground="#C8CCD6" />
+    </StackPanel>
+  </Border>
+</Window>

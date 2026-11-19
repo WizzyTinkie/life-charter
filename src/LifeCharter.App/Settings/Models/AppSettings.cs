@@ -12,4 +12,7 @@ public sealed record AppSettings
 
     /// <summary>Where the user last dragged the widget; null keeps it in <see cref="WidgetCorner"/>.</summary>
     public WidgetPosition? WidgetPosition { get; init; }
+
+    /// <summary>The Syncthing-shared folder for device snapshots; null turns sync off.</summary>
+    public string? SyncFolder { get; init; }
 }

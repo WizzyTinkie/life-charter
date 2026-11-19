@@ -14,6 +14,8 @@
       <StackPanel Spacing="8" IsVisible="{Binding CanEditNode}">
         <TextBox Text="{Binding Title}" PlaceholderText="Title" />
         <TextBox Text="{Binding Description}" PlaceholderText="Description" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" />
+        <TextBox Text="{Binding Aliases}" PlaceholderText="Quick-entry words, comma-separated (run, jog)"
+                 ToolTip.Tip="Words that quick entry maps to this node, for example: run, jog, bike" />
         <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto">
           <TextBlock Text="Attribute" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,2"

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using LifeCharter.App.Siege.Business;
 using LifeCharter.App.SkillTree.Business;
 using LifeCharter.Core.Common.Business;
+using LifeCharter.Core.Goals.Business;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Retention.Models;
@@ -33,7 +34,7 @@ public sealed partial class DefenseItemViewModel(ChartSession session, SkillNode
     private async Task DefendAsync()
     {
         IsDefended = true;
-        var amount = goal is null ? 1 : ProgressText.DefaultAmount(goal);
+        var amount = goal is null ? 1 : GoalDefaults.Amount(goal);
         await session.LogAsync(node.Id, goal?.Id, amount, goal?.Unit ?? "", "", EntrySource.Widget);
     }
 

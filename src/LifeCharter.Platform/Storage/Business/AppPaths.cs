@@ -22,6 +22,9 @@ public static class AppPaths
 
     public static string DatabasePath => Path.Combine(DataDirectory, "lifecharter.db");
 
+    /// <summary>Daily rolling copies of the working database.</summary>
+    public static string BackupDirectory => Path.Combine(DataDirectory, "backups");
+
     /// <summary>The user's config root on Linux (<c>$XDG_CONFIG_HOME</c> or <c>~/.config</c>), shared with other apps.</summary>
     public static string UserConfigHome => XdgDirectory("XDG_CONFIG_HOME", ".config");
 

@@ -81,14 +81,17 @@ src/
     Sync/                    Business/HybridLogicalClock, Models/HlcStamp
     Retention/               Business/MemoryTracker, HabitTracker, CapacityTracker, MotorSkillTracker, RetentionRules
     Siege/                   Business/SiegeEngine, DifficultyPresets, SiegeRules; Models/SiegeSettings, Attack, SiegeResult
+    QuickEntry/              Business/QuickEntryParser, QuickEntryPreview, UnitAliases, TextNormalizer
     Progression/  Goals/  Journal/  SkillTree/  Common/
   LifeCharter.Data/        SQLite
-    Sync/                    Business/SnapshotSync, Models/SyncedTable, SyncKind, MergeReport
-    Storage/                 (Phase 1: EF Core DbContext, migrations)
+    Sync/                    Business/SnapshotSync, SyncService (watcher + debounced export), Models/SyncedTable, SyncKind, MergeReport
+    Storage/                 Business/LifeCharterDbContext, LifeChartStore, DatabaseBackup; Migrations/
   LifeCharter.Platform/    OS integration
-    AppInstance/             Business/SingleInstance (named pipe)
-    DesktopWidget/           Business/KWinRuleInstaller, DesktopPinning (Windows)
-    Notifications/  Secrets/  Shortcuts/  Autostart/  (Phase 3+)
+    AppInstance/             Business/SingleInstance (named pipe, request + reply)
+    DesktopWidget/           Business/KWinRuleInstaller, KWinWidgetPlacer, DesktopPinning (Windows)
+    Notifications/           Business/FreedesktopNotifier, LoggingNotifier (Windows stand-in)
+    Shortcuts/               Business/KGlobalAccelShortcuts (KDE), WindowsHotKeys
+    Autostart/  Secrets/ (Phase 5)
   LifeCharter.AI/          providers, router, tools, quick-entry parser, Lemonade manager
   LifeCharter.App/         Avalonia
     Shell/                   Business/AppShell, AppCommands, TrayIconFactory; Models/AppCommand
@@ -96,6 +99,9 @@ src/
     SkillTree/               Views/TreeWindow, Controls/SkillTreeCanvas, Business/TreeLayoutGenerator, Models/…
     Widget/                  Views/WidgetWindow, PeekWindow, WidgetContent
     Siege/                   Views/SiegeSettingsWindow, ViewModels/RetentionViewModel, Business/RetentionText
+    QuickEntry/              Views/QuickEntryWindow, ViewModels/QuickEntryViewModel, Business/QuickEntryText
+    Sync/                    Views/SyncWindow, Business/SyncController
+    Notifications/           Business/ThreatReporter
 spikes/
   LifeCharter.AiSpike/     provider tool-call spike (Phase 0)
 tests/                     mirror the src folders
@@ -359,7 +365,9 @@ Installed here: `lemonade-server 2026.43.3` (`lemond`, port 13305, `max_loaded_m
 
 ### Tray
 
-The menu contains: **Open tree** · **Peek widget** · **Quick entry** · **Today's defenses** (checkable items, one click defends a node) · **Coach** · **Pause reminders** · **Quit**. The tray icon shows a small ring for today's defense progress and turns red while attacks are undefended in the evening.
+The menu contains: **Open tree** · **Quick entry** · **Peek widget** · **Today's defenses** (checkable items, one click defends a node) · **Coach** · **Pause reminders** · **Quit**. The tray icon shows a small ring for today's defense progress and turns red while attacks are undefended in the evening.
+
+*As built in Phase 3:* Open tree · Quick entry… · Peek widget · **Today's defenses (n/m)** (a click logs the node's usual amount; a Memory node opens Again/Hard/Good/Easy) · Siege settings… · Sync… · Widget position · Start on login · Help · Quit. From 18:00 the icon gets a red badge while damaging attacks are undefended. Coach and Pause reminders wait for Phase 5.
 
 ### Desktop widget (Avalonia, both OSes)
 
@@ -385,17 +393,19 @@ A Spotlight-style popup (default `Meta+Shift+Space`):
 2. Anything else goes to the local model → a preview chip such as `Stamina › Running · 5 km · defends "Cardio I" · +50 XP` appears → **Enter** confirms.
 3. Slash commands: `/log`, `/defend`, `/goal`, `/plan`, `/today`, `/undo`, `/coach`.
 
+*As built in Phase 3 (deterministic part):* `QuickEntryParser` finds a number with an optional unit (`2l`, `30 min`, `1,5 h`, `500 ml`, Czech units like `stran`, `hodiny`), a recall rating (again/hard/good/easy, also znovu/těžké/dobře/snadné) and matches the remaining words against node titles, node **aliases** (new `nodes.aliases` column; starter nodes get defaults such as Cardio = run, jog, bike) and quest aliases, ignoring case and diacritics. Units pick the goal and convert h ↔ min and l ↔ ml; without a number the goal's usual amount is logged. Text after `:` is the note. `/undo`, `/today`, `/log`, `/defend` work; `/goal`, `/plan`, `/coach` answer that the AI coach comes in Phase 5. While typing, `QuickEntryPreview` computes progression with the draft and shows XP, "defends today's attack", "masters it!" and "level up!". The same line works in the widget's box, the popup and `lifecharter log …` (which prints the confirmation).
+
 ### Global shortcuts
 
 | OS | How |
 |---|---|
-| KDE | XDG GlobalShortcuts portal, or KDE custom shortcuts that run `lifecharter peek` / `lifecharter quick`. `Meta+L` is already the lock screen, so it is not used. |
-| Windows | `RegisterHotKey` via P/Invoke |
+| KDE | **kglobalaccel over D-Bus** (as KDE apps do): `doRegister` + `setShortcut` (default, then active, so a shortcut the user changed in System Settings → Shortcuts → LifeCharter is kept), and the component's `globalShortcutPressed` signal. Defaults `Meta+Shift+Space` (quick entry) and `Meta+Shift+W` (peek), checked free on this machine. Works while LifeCharter runs; `lifecharter quick` / `peek` can be bound too. |
+| Windows | `RegisterHotKey` via P/Invoke, `WM_HOTKEY` in the widget's WndProc hook. Defaults `Win+Alt+Space` / `Win+Alt+W`, because `Win+Shift+Space` switches keyboard layouts. Not run yet. |
 
 ### More entry points
 
 - **KRunner** (KDE): a D-Bus runner implemented in C#. `Alt+Space` → `lc ran 5k` → logged.
-- **Notifications:** `org.freedesktop.Notifications` on KDE and toasts on Windows, with **Defend** and **Snooze** actions.
+- **Notifications:** `org.freedesktop.Notifications` on KDE and toasts on Windows, with **Defend** and **Snooze** actions. *As built:* the morning threat report from 08:00 and an evening reminder from 20:00 (only for undefended damaging attacks, "In 1 hour" snoozes), each at most once a day per device (state in `notifications.json`); clicking opens the peek overlay. Windows toasts need an app identity (AUMID) from packaging, so Windows only logs them until Phase 6.
 - Later, optional: Windows 11 Widgets Board provider, PowerToys Command Palette extension.
 
 ---
@@ -437,6 +447,8 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 - Because derived state is recomputed (section 3), XP and siege results come out identical on both machines.
 
 **Never synced:** API keys (keychain), device ID, window positions, per-device provider choice.
+
+*As built in Phase 3:* `SyncService` exports 30 s after the last change (and on quit), watches `devices/` and merges 2 s after Syncthing's file events settle, and also at start. An export is skipped when a cheap signature (row count + newest stamp per synced table) has not changed, and a merge reports how many rows really changed (`total_changes()`), so a merge that brings nothing new triggers no reload and no export: two devices never bounce snapshots back and forth. `.stignore` (`*.tmp`) is written into the folder. The folder is chosen per device in tray → Sync… (`SyncFolder` in the device-local settings). The daily backup (`backups/lifecharter-YYYY-MM-DD.db`, 14 kept) runs at start and at day change. Not yet: suspend/resume hooks, tombstone purge, JSON export.
 
 | | Linux | Windows |
 |---|---|---|
@@ -492,6 +504,19 @@ Syncthing syncs **files**, not database contents. A live SQLite file in a synced
 | UI | ✅ Tree: Fortified/Engraved/Corrupted rims, amber integrity ring, red dot for an undefended attack. Side panel: retention, recall buttons, self-check. Widget: today's defense list with one-tap defense, recall ratings and the ward button. Siege settings window (tray menu and tree header). Help sections on siege, retention and difficulty. |
 | Tests | ✅ Core 85, Data 18, Platform 7 |
 | Not in Phase 2 | Bosses (Phase 4), notifications and the morning threat report (Phase 3), a 04:00 rollover |
+
+### Phase 3 results (2026-11-19, branch `phase3/daily-use`)
+
+| Deliverable | Result |
+|---|---|
+| Quick entry | ✅ Parser with aliases, units, ratings, notes and slash commands; live preview with XP/defend/master; widget box, popup (`Meta+Shift+Space`), CLI. Starter aliases backfilled by migration `AddNodeAliases`. |
+| CLI | ✅ `lifecharter log <text>`, `status`, `quick`, `--usage`. The single-instance pipe now carries a one-line reply, printed by the launching command. Checked against a running instance in an isolated profile. |
+| Tray defense list | ✅ Today's defenses submenu, evening red badge |
+| Notifications | ✅ Morning report and evening reminder on KDE (D-Bus call checked); Windows logs only |
+| Global shortcuts | ✅ KDE via kglobalaccel: registration checked, and invoking the shortcut through kglobalaccel opens the popup. Windows `RegisterHotKey` written, not run. |
+| Syncthing sync | ✅ Background service, folder picker window, daily backups. Two-device tests: merge once, no ping-pong, watcher-triggered merge. Real two-machine use still to do. |
+| Tests | ✅ Core 113, Data 24, Platform 11 |
+| Exit criteria | Defending from anywhere: `Meta+Shift+Space`, type `water 2l`, Enter. A week across Linux and Windows: not done yet (Windows untested). |
 
 ---
 

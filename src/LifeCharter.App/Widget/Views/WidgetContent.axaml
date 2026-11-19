@@ -79,7 +79,15 @@
         <Button Grid.Column="1" Content="Undo" Command="{Binding UndoLastCommand}" FontSize="11" Padding="6,1" Margin="6,0,0,0" />
       </Grid>
 
-      <TextBox x:Name="QuickEntry" PlaceholderText="Quick entry arrives in Phase 3" IsEnabled="False" />
+      <StackPanel Spacing="4">
+        <TextBox x:Name="QuickEntry" Text="{Binding QuickEntry.Text}" PlaceholderText="water 2l · run 30 min · /undo">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding QuickEntry.SubmitCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <TextBlock Text="{Binding QuickEntry.Preview}" FontSize="11" Foreground="#9AA0AE" TextWrapping="Wrap"
+                   IsVisible="{Binding QuickEntry.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
     </StackPanel>
   </Border>
 </UserControl>

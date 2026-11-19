@@ -46,6 +46,7 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
 
         Title = node.Title;
         Description = node.Description;
+        Aliases = node.Aliases;
         Attribute = node.Attribute;
         Kind = node.Kind;
         RetentionModel = node.RetentionModel;
@@ -101,6 +102,9 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
     public partial string Description { get; set; }
 
     [ObservableProperty]
+    public partial string Aliases { get; set; }
+
+    [ObservableProperty]
     public partial LifeAttribute Attribute { get; set; }
 
     [ObservableProperty]
@@ -123,6 +127,7 @@ public sealed partial class NodeInspectorViewModel : ObservableObject
     {
         node.Title = Title.Trim();
         node.Description = Description.Trim();
+        node.Aliases = string.Join(", ", Aliases.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         node.Attribute = Attribute;
         if (node.Kind != Kind)
         {

@@ -9,6 +9,7 @@ public sealed record SyncedTable(string Name, SyncKind Kind, IReadOnlyList<strin
 {
     public const string IdColumn = "id";
     public const string UpdatedAtColumn = "updated_at";
+    public const string CreatedAtColumn = "created_at";
 
     public void Validate()
     {

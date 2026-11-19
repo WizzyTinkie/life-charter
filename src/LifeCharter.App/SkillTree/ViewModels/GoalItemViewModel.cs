@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LifeCharter.App.SkillTree.Business;
 using LifeCharter.Core.Common.Business;
+using LifeCharter.Core.Goals.Business;
 using LifeCharter.Core.Goals.Models;
 using LifeCharter.Core.Journal.Models;
 using LifeCharter.Core.Progression.Models;
@@ -29,7 +30,7 @@ public sealed partial class GoalItemViewModel : ObservableObject
         Window = goal.Window;
         Periods = goal.Periods;
         Consecutive = goal.Consecutive;
-        LogAmount = (decimal)ProgressText.DefaultAmount(goal);
+        LogAmount = (decimal)GoalDefaults.Amount(goal);
     }
 
     public static IReadOnlyList<GoalMetric> Metrics { get; } = Enum.GetValues<GoalMetric>();
